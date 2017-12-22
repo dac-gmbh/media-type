@@ -20,7 +20,7 @@ struct ParamIndices {
     end_of_value_idx: usize
 }
 
-
+#[derive(Clone, Debug, Eq)]
 pub struct MediaType<S: Spec> {
     inner: AnyMediaType,
     _spec: PhantomData<S>
@@ -37,6 +37,15 @@ impl<S> MediaType<S>
 
     pub fn validate(input: &str) -> bool {
         validate::<S>(input)
+    }
+}
+
+impl<S1, S2> PartialEq<MediaType<S2>> for MediaType<S1>
+    where S1: Spec, S2: Spec
+{
+    // Spec is just about parsing/normalizing etc. we can compare independent of it
+    fn eq(&self, other: &MediaType<S2>) -> bool {
+        self.deref() == other.deref()
     }
 }
 
@@ -247,7 +256,7 @@ impl<'a> Debug for Params<'a> {
 #[cfg(test)]
 mod test {
     use super::{AnyMediaType, MediaType};
-    use ::parse::AnySpec;
+    use ::parse::{AnySpec, StrictSpec};
 
     #[test]
     fn simple_parse() {
@@ -301,6 +310,16 @@ mod test {
             MediaType::<AnySpec>::parse("text/plain; p1=\"a\"; p2=b")).into();
         let mt2: AnyMediaType = assert_ok!(
             MediaType::<AnySpec>::parse("text/plain; p2=\"b\"; p1=a")).into();
+
+        assert_eq!(mt1, mt2);
+    }
+
+    #[test]
+    fn media_type_eq_different_spec() {
+        let mt1 = assert_ok!(
+            MediaType::<AnySpec>::parse("text/plain; p1=\"a\"; p2=b"));
+        let mt2 = assert_ok!(
+            MediaType::<StrictSpec>::parse("text/plain; p2=\"b\"; p1=a"));
 
         assert_eq!(mt1, mt2);
     }
