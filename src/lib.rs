@@ -275,6 +275,7 @@ mod seal {
 //    }
 //}
 //
+////TODO this hash implementation is broken
 //impl Hash for Mime {
 //    fn hash<T: Hasher>(&self, hasher: &mut T) {
 //        hasher.write(self.source.as_ref().as_bytes());

@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::iter::{Iterator, ExactSizeIterator};
 use std::slice;
 use std::marker::PhantomData;
@@ -13,10 +14,12 @@ use value::{Value, UTF_8, UTF8};
 
 use parse::{Spec, ParseResult, parse, validate};
 
+#[derive(Clone, Debug, PartialEq, Eq)]
 struct ParamIndices {
     eq_idx: usize,
     end_of_value_idx: usize
 }
+
 
 pub struct MediaType<S: Spec> {
     inner: AnyMediaType,
@@ -55,6 +58,7 @@ impl<S> Into<AnyMediaType> for MediaType<S>
     }
 }
 
+#[derive(Clone, Eq, Debug)]
 pub struct AnyMediaType {
     //idx layout
     //                              /plus_idx if there is no suffix, buffer.len() if there are no parameters
@@ -72,7 +76,6 @@ pub struct AnyMediaType {
     end_of_type: usize,
     params: Vec<ParamIndices>
 }
-
 
 impl AnyMediaType {
 
@@ -124,6 +127,27 @@ impl AnyMediaType {
     }
 
 }
+
+impl PartialEq for AnyMediaType {
+    fn eq(&self, other: &AnyMediaType) -> bool {
+        self.type_() == other.type_()
+            && self.subtype() == other.subtype()
+            && self.suffix() == other.suffix()
+            && self.params().len() == other.params().len()
+            && {
+                let map = self.params().collect::<HashMap<_,_>>();
+                // we already checked that the len of both is the same
+                // so if all params of other are in map they are equal
+                other.params()
+                    .all(|(other_name, other_value)| {
+                        map.get(&other_name)
+                            .map(|value| other_value == *value)
+                            .unwrap_or(false)
+                    })
+            }
+    }
+}
+
 
 impl<'a> From<ParseResult<'a>> for AnyMediaType {
 
@@ -222,7 +246,7 @@ impl<'a> Debug for Params<'a> {
 
 #[cfg(test)]
 mod test {
-    use super::MediaType;
+    use super::{AnyMediaType, MediaType};
     use ::parse::AnySpec;
 
     #[test]
@@ -269,5 +293,15 @@ mod test {
         assert_eq!(iter.size_hint(), (0, Some(0)));
 
         assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn any_media_type_eq() {
+        let mt1: AnyMediaType = assert_ok!(
+            MediaType::<AnySpec>::parse("text/plain; p1=\"a\"; p2=b")).into();
+        let mt2: AnyMediaType = assert_ok!(
+            MediaType::<AnySpec>::parse("text/plain; p2=\"b\"; p1=a")).into();
+
+        assert_eq!(mt1, mt2);
     }
 }
