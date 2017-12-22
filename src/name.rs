@@ -129,7 +129,21 @@ mod test {
         assert_eq!("abc", param);
     }
 
-    //TODO name_eq_name
+    #[test]
+    fn test_name_eq_name() {
+        let n1 = Name::new_unchecked("abc");
+        let n2 = Name::new_unchecked("abc");
+        assert_eq!(n1, n2);
+
+        let n3 = Name::new_unchecked("aBc");
+        assert_ne!(n1, n3, concat!(
+            "while Name is case insensitive it needs to derive(PartialEq) to be usable in match\n",
+            "as such names can only be constructed from lowercase strings"
+        ));
+
+        assert_eq!(n1, n3.as_str());
+        assert_eq!(n3, n1.as_str());
+    }
 
 
 }

@@ -36,6 +36,7 @@ extern crate lut;
 extern crate nom;
 
 
+pub use quoted_string::AsciiCaseInsensitiveEq;
 pub use self::name::{Name, CHARSET};
 pub use self::value::{Value, UTF_8};
 pub use self::spec::{
@@ -796,7 +797,6 @@ mod tests {
     fn test_value_eq() {
         let param = Value {
             source: "ABC",
-            ascii_case_insensitive: false,
         };
 
         assert_eq!(param, param);
