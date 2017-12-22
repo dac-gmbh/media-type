@@ -1,25 +1,36 @@
-use std::cmp::PartialEq;
+use std::cmp::{PartialEq, Eq};
 use std::fmt;
 use std::borrow::Cow;
 
-use unicase;
-use quoted_string::{self, ContentChars, AsciiCaseInsensitiveEq};
+use quoted_string::{self, ContentChars};
+//FIXME rearange imports
+use parse::AnySpec;
 
+pub static UTF_8: Value = Value { source: "utf-8" };
+pub static UTF8: Value = Value { source: "utf8" };
 
 
 /// A parameter value section of a `Mime`.
 /// 
 /// Except for the `charset` parameter, parameters 
 /// are compared case sensitive
-#[derive(Clone, Copy, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, Hash)]
 pub struct Value<'a> {
-    pub(crate) source: &'a str,
-    pub(crate) ascii_case_insensitive: bool
+    source: &'a str,
 }
 
-
 impl<'a> Value<'a> {
-    
+
+    /// crates a Value from a `source` str, assuming it's a valid quoted-string/token
+    ///
+    /// It is seen as a _bug_ to pass in invalid input e.g. a malformed quoted-string. If
+    /// it's done the result it a malformed Value, for which e.g. the `Eq` implementation
+    /// is not correct as comparing it to itself might yield false.
+    pub(crate) fn new_unchecked(source: &'a str) -> Value<'a> {
+        Value { source }
+    }
+
+
     /// Returns the underlying representation.
     ///
     /// The underlying representation differs from the content,
@@ -78,40 +89,55 @@ impl<'a> Value<'a> {
     /// ```
     ///
     pub fn to_content(&self) -> Cow<'a, str> {
-        quoted_string::unquote_unchecked(self.source)
+        if self.source.bytes().next() == Some(b'"') {
+            quoted_string::to_content::<AnySpec>(self.source)
+                .expect("[BUG] can not convert valid quoted string to content")
+        } else {
+            Cow::Borrowed(self.source)
+        }
     }
-
 }
 
 impl<'a, 'b> PartialEq<Value<'b>> for Value<'a> {
     #[inline]
     fn eq(&self, other: &Value<'b>) -> bool {
-        let left_content_chars = ContentChars::from_string_unchecked(self.source);
-        let right_content_chars = ContentChars::from_string_unchecked(other.source);
+        let left_quoted = self.source.bytes().next() == Some(b'"');
+        let right_quoted = other.source.bytes().next() == Some(b'"');
 
-        if self.ascii_case_insensitive || other.ascii_case_insensitive {
-            left_content_chars.eq_ignore_ascii_case(&right_content_chars)
+        if left_quoted {
+            if right_quoted {
+                let left_content_chars = ContentChars::<AnySpec>::from_str(self.source);
+                let right_content_chars = ContentChars::<AnySpec>::from_str(other.source);
+                left_content_chars == right_content_chars
+            } else {
+                let left_content_chars = ContentChars::<AnySpec>::from_str(self.source);
+                left_content_chars == other.source
+            }
         } else {
-            left_content_chars == right_content_chars
+            if right_quoted {
+                let right_content_chars = ContentChars::<AnySpec>::from_str(other.source);
+                right_content_chars == self.source
+            } else {
+                self.source == other.source
+            }
         }
     }
 }
 
+// Value uses ContentChars for Eq _which is only PartialEq, not Eq_ but
+// it's partial eq because of the possiblility of errors in the input,
+// as we know the input is valid (it's a but if it isn't) we can implement
+// Eq for it
+impl<'a> Eq for Value<'a> {}
+
+
 impl<'a> PartialEq<str> for Value<'a> {
     fn eq(&self, other: &str) -> bool {
         if self.source.chars().next() == Some('"') {
-            let content_chars = ContentChars::from_string_unchecked(self.source);
-            if self.ascii_case_insensitive {
-                content_chars.eq_ignore_ascii_case(other)
-            } else {
-                content_chars == other
-            }
+            let content_chars = ContentChars::<AnySpec>::from_str(self.source);
+            content_chars == other
         } else {
-            if self.ascii_case_insensitive {
-                unicase::eq_ascii(self.source, other)
-            } else {
-                self.source == other
-            }
+            self.source == other
         }
     }
 }
@@ -159,6 +185,7 @@ impl<'a> fmt::Display for Value<'a> {
     }
 }
 
+
 #[cfg(test)]
 mod test {
     use std::borrow::Cow;
@@ -181,15 +208,12 @@ mod test {
     fn test_value_eq_str() {
         let value = Value {
             source: "abc",
-            ascii_case_insensitive: false
         };
         let value_quoted = Value {
             source: "\"abc\"",
-            ascii_case_insensitive: false
         };
         let value_quoted_with_esacpes = Value {
             source: "\"a\\bc\"",
-            ascii_case_insensitive: false
         };
 
         bidi_eq(value, "abc");
@@ -212,60 +236,56 @@ mod test {
 
     #[test]
     fn test_value_eq_str_ascii_case_insensitive() {
-        let value = Value {
-            source: "abc",
-            ascii_case_insensitive: true
-        };
-        let value_quoted = Value {
-            source: "\"abc\"",
-            ascii_case_insensitive: true
-        };
-        let value_quoted_with_esacpes = Value {
-            source: "\"a\\bc\"",
-            ascii_case_insensitive: true
-        };
-
-        //1st. all case sensitive checks which still apply
-        bidi_eq(value, "abc");
-        bidi_ne(value, "\"abc\"");
-        bidi_ne(value, "\"a\\bc\"");
-
-        bidi_eq(value_quoted, "abc");
-        bidi_ne(value_quoted, "\"abc\"");
-        bidi_ne(value_quoted, "\"a\\bc\"");
-
-        bidi_eq(value_quoted_with_esacpes, "abc");
-        bidi_ne(value_quoted_with_esacpes, "\"abc\"");
-        bidi_ne(value_quoted_with_esacpes, "\"a\\bc\"");
-
-
-        //2nd the case insensitive check
-        bidi_eq(value, "aBc");
-        bidi_ne(value, "\"aBc\"");
-        bidi_ne(value, "\"a\\Bc\"");
-
-        bidi_eq(value_quoted, "aBc");
-        bidi_ne(value_quoted, "\"aBc\"");
-        bidi_ne(value_quoted, "\"a\\Bc\"");
-
-        bidi_eq(value_quoted_with_esacpes, "aBc");
-        bidi_ne(value_quoted_with_esacpes, "\"aBc\"");
-        bidi_ne(value_quoted_with_esacpes, "\"a\\Bc\"");
+//        let value = Value {
+//            source: "abc",
+//        };
+//        let value_quoted = Value {
+//            source: "\"abc\"",
+//            ascii_case_insensitive: true
+//        };
+//        let value_quoted_with_esacpes = Value {
+//            source: "\"a\\bc\"",
+//            ascii_case_insensitive: true
+//        };
+//
+//        //1st. all case sensitive checks which still apply
+//        bidi_eq(value, "abc");
+//        bidi_ne(value, "\"abc\"");
+//        bidi_ne(value, "\"a\\bc\"");
+//
+//        bidi_eq(value_quoted, "abc");
+//        bidi_ne(value_quoted, "\"abc\"");
+//        bidi_ne(value_quoted, "\"a\\bc\"");
+//
+//        bidi_eq(value_quoted_with_esacpes, "abc");
+//        bidi_ne(value_quoted_with_esacpes, "\"abc\"");
+//        bidi_ne(value_quoted_with_esacpes, "\"a\\bc\"");
+//
+//
+//        //2nd the case insensitive check
+//        bidi_eq(value, "aBc");
+//        bidi_ne(value, "\"aBc\"");
+//        bidi_ne(value, "\"a\\Bc\"");
+//
+//        bidi_eq(value_quoted, "aBc");
+//        bidi_ne(value_quoted, "\"aBc\"");
+//        bidi_ne(value_quoted, "\"a\\Bc\"");
+//
+//        bidi_eq(value_quoted_with_esacpes, "aBc");
+//        bidi_ne(value_quoted_with_esacpes, "\"aBc\"");
+//        bidi_ne(value_quoted_with_esacpes, "\"a\\Bc\"");
     }
 
     #[test]
     fn test_value_eq_value() {
         let value = Value {
             source: "abc",
-            ascii_case_insensitive: false
         };
         let value_quoted = Value {
             source: "\"abc\"",
-            ascii_case_insensitive: false
         };
         let value_quoted_with_esacpes = Value {
             source: "\"a\\bc\"",
-            ascii_case_insensitive: false
         };
         assert_eq!(value, value);
         assert_eq!(value_quoted, value_quoted);
@@ -276,73 +296,75 @@ mod test {
         bidi_eq(value_quoted, value_quoted_with_esacpes);
     }
 
+    #[ignore]
     #[test]
     fn test_value_eq_value_case_insensitive() {
-        let value = Value {
-            source: "Abc",
-            ascii_case_insensitive: true
-        };
-        let value_quoted = Value {
-            source: "\"aBc\"",
-            ascii_case_insensitive: true
-        };
-        let value_quoted_with_esacpes = Value {
-            source: "\"a\\bC\"",
-            ascii_case_insensitive: true
-        };
-        assert_eq!(value, value);
-        assert_eq!(value_quoted, value_quoted);
-        assert_eq!(value_quoted_with_esacpes, value_quoted_with_esacpes);
-
-        bidi_eq(value, value_quoted);
-        bidi_eq(value, value_quoted_with_esacpes);
-        bidi_eq(value_quoted, value_quoted_with_esacpes);
+//        let value = Value {
+//            source: "Abc",
+//            ascii_case_insensitive: true
+//        };
+//        let value_quoted = Value {
+//            source: "\"aBc\"",
+//            ascii_case_insensitive: true
+//        };
+//        let value_quoted_with_esacpes = Value {
+//            source: "\"a\\bC\"",
+//            ascii_case_insensitive: true
+//        };
+//        assert_eq!(value, value);
+//        assert_eq!(value_quoted, value_quoted);
+//        assert_eq!(value_quoted_with_esacpes, value_quoted_with_esacpes);
+//
+//        bidi_eq(value, value_quoted);
+//        bidi_eq(value, value_quoted_with_esacpes);
+//        bidi_eq(value_quoted, value_quoted_with_esacpes);
     }
 
+    #[ignore]
     #[test]
     fn test_value_eq_value_mixed_case_sensitivity() {
-        let value = Value {
-            source: "Abc",
-            ascii_case_insensitive: true
-        };
-        let value_quoted = Value {
-            source: "\"aBc\"",
-            ascii_case_insensitive: false
-        };
-        let value_quoted_with_esacpes = Value {
-            source: "\"a\\bC\"",
-            ascii_case_insensitive: false
-        };
-
-        bidi_eq(value, value_quoted);
-        bidi_eq(value, value_quoted_with_esacpes);
-
-        //both are ascii case insensitive
-        bidi_ne(value_quoted, value_quoted_with_esacpes);
+//        let value = Value {
+//            source: "Abc",
+//            ascii_case_insensitive: true
+//        };
+//        let value_quoted = Value {
+//            source: "\"aBc\"",
+//            ascii_case_insensitive: false
+//        };
+//        let value_quoted_with_esacpes = Value {
+//            source: "\"a\\bC\"",
+//            ascii_case_insensitive: false
+//        };
+//
+//        bidi_eq(value, value_quoted);
+//        bidi_eq(value, value_quoted_with_esacpes);
+//
+//        //both are ascii case insensitive
+//        bidi_ne(value_quoted, value_quoted_with_esacpes);
     }
 
     #[test]
     fn test_as_str_repr() {
-        let value = Value { source: "\"ab cd\"", ascii_case_insensitive: false };
+        let value = Value { source: "\"ab cd\"" };
         assert_eq!(value, "ab cd");
         assert_eq!(value.as_str_repr(), "\"ab cd\"");
     }
 
     #[test]
     fn test_to_content_not_quoted() {
-        let value = Value { source: "abc", ascii_case_insensitive: false};
+        let value = Value { source: "abc" };
         assert_eq!(value.to_content(), Cow::Borrowed("abc"));
     }
 
     #[test]
     fn test_to_content_quoted_simple() {
-        let value = Value { source: "\"ab cd\"", ascii_case_insensitive: false};
+        let value = Value { source: "\"ab cd\"" };
         assert_eq!(value.to_content(), Cow::Borrowed("ab cd"));
     }
 
     #[test]
     fn test_to_content_with_quoted_pair() {
-        let value = Value { source: "\"ab\\\"cd\"", ascii_case_insensitive: false};
+        let value = Value { source: "\"ab\\\"cd\"" };
         assert_eq!(value, "ab\"cd");
         let expected: Cow<'static, str> = Cow::Owned("ab\"cd".into());
         assert_eq!(value.to_content(), expected);

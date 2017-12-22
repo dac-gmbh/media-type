@@ -11,4 +11,12 @@ keywords = ["mime", "media-extensions", "media-types"]
 
 [dependencies]
 unicase = "2.0"
-quoted-string = "0.2.2"
+nom = { version="3.2.1", features=["verbose-errors"] }
+
+quoted-string = { path="../quoted-string"}
+# keep the version compatible with the version used in quoted-string
+# to make sure there is only one char lookup table in the binary
+
+[dependencies.lut]
+path = "../lut"
+features = ["media-type-chars"]

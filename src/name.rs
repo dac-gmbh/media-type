@@ -1,9 +1,12 @@
 use std::cmp::PartialEq;
 use std::fmt;
-
+use std::ops::Deref;
 
 use unicase;
 
+pub static CHARSET: Name = Name { source: "charset" };
+
+//TODO add Spec :=/
 /// A name section of a `Mime`.
 ///
 /// For instance, for the Mime `image/svg+xml`, it contains 3 `Name`s,
@@ -23,7 +26,14 @@ pub struct Name<'a> {
     /// the underlying str slice, which is _required to be lowercase_.
     /// Comparisons between two Name instances expect this, as they
     /// have to use `derive(PartialEq)` to be usable in a pattern
-    pub(crate) source: &'a str,
+    source: &'a str,
+}
+
+impl<'a> Name<'a> {
+
+    pub(crate) fn new_unchecked(source: &'a str) -> Name<'a> {
+        Name { source }
+    }
 }
 
 
@@ -36,7 +46,13 @@ impl<'a> Name<'a> {
     pub fn as_str(&self) -> &'a str {
         self.source
     }
+}
 
+impl<'a> Deref for Name<'a> {
+    type Target = str;
+    fn deref(&self) -> &str {
+        self.source
+    }
 }
 
 impl<'a> PartialEq<str> for Name<'a> {
@@ -100,11 +116,11 @@ impl<'a> fmt::Display for Name<'a> {
 mod test {
     use std::str::FromStr;
     use super::Name;
-    use super::super::Mime;
+    //use super::super::Mime;
 
     #[test]
     fn test_name_eq_str() {
-        let param = Name { source: "ABC" };
+        let param = Name { source: "abc" };
 
         assert_eq!(param, param);
         assert_eq!(param, "ABC");
@@ -113,13 +129,7 @@ mod test {
         assert_eq!("abc", param);
     }
 
-    #[test]
-    fn test_name_eq_name() {
-        let mime1 = Mime::from_str(r#"text/x-custom; abc=a"#).unwrap();
-        let mime2 = Mime::from_str(r#"text/x-custom; aBc=a"#).unwrap();
-        let param1 = mime1.params().next().unwrap().0;
-        let param2 = mime2.params().next().unwrap().0;
+    //TODO name_eq_name
 
-        assert_eq!(param1, param2);
-    }
+
 }
