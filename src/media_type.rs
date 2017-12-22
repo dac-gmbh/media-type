@@ -1,15 +1,22 @@
+use std::iter::{Iterator, ExactSizeIterator};
+use std::slice;
 use std::marker::PhantomData;
 use std::ops::Deref;
+use std::fmt::{self, Debug};
+
 
 use nom::Err;
 
 use name::{Name, CHARSET};
 use value::{Value, UTF_8, UTF8};
 
-use std::iter::Iterator;
-use std::slice;
 
 use parse::{Spec, ParseResult, parse, validate};
+
+struct ParamIndices {
+    eq_idx: usize,
+    end_of_value_idx: usize
+}
 
 pub struct MediaType<S: Spec> {
     inner: AnyMediaType,
@@ -168,13 +175,7 @@ impl<'a> From<ParseResult<'a>> for AnyMediaType {
     }
 }
 
-
-struct ParamIndices {
-    eq_idx: usize,
-    end_of_value_idx: usize
-}
-
-
+#[derive(Clone)]
 pub struct Params<'a> {
     source: &'a str,
     last_end_idx: usize,
@@ -192,6 +193,28 @@ impl<'a> Iterator for Params<'a> {
                 self.last_end_idx = pidx.end_of_value_idx;
                 (Name::new_unchecked(name), Value::new_unchecked(value))
             })
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
+}
+
+impl<'a> ExactSizeIterator for Params<'a> {
+    #[inline]
+    fn len(&self) -> usize {
+        self.iter.len()
+    }
+}
+
+impl<'a> Debug for Params<'a> {
+
+    fn fmt(&self, fter: &mut fmt::Formatter) -> fmt::Result {
+        let metoo = self.clone();
+        fter.debug_list()
+            .entries(metoo)
+            .finish()
     }
 }
 
@@ -223,5 +246,28 @@ mod test {
         let mt: MediaType<_> = assert_ok!(MediaType::<AnySpec>::parse("text/plain; charset=utf8"));
         assert!(mt.has_utf8_charset());
         assert_eq!(mt.as_str_repr(), "text/plain; charset=utf-8");
+    }
+
+
+    #[test]
+    fn params_iter_behaviour() {
+        let mt: MediaType<AnySpec> = assert_ok!(MediaType::parse("test/plain; c1=abc; c2=def"));
+        let mut iter = mt.params();
+        assert_eq!(iter.len(), 2);
+        assert_eq!(iter.size_hint(), (2, Some(2)));
+
+        let p1 = iter.next().unwrap();
+        assert_eq!(p1.0, "c1");
+        assert_eq!(p1.1, "abc");
+        assert_eq!(iter.len(), 1);
+        assert_eq!(iter.size_hint(), (1, Some(1)));
+
+        let p1 = iter.next().unwrap();
+        assert_eq!(p1.0, "c2");
+        assert_eq!(p1.1, "def");
+        assert_eq!(iter.len(), 0);
+        assert_eq!(iter.size_hint(), (0, Some(0)));
+
+        assert_eq!(iter.next(), None);
     }
 }
