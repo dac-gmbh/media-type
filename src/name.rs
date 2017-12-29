@@ -5,6 +5,8 @@ use std::ops::Deref;
 use unicase;
 
 pub static CHARSET: Name = Name { source: "charset" };
+pub static TEXT: Name = Name { source: "text" };
+
 
 //TODO add Spec :=/
 /// A name section of a `Mime`.
@@ -31,6 +33,7 @@ pub struct Name<'a> {
 
 impl<'a> Name<'a> {
 
+    #[inline]
     pub(crate) fn new_unchecked(source: &'a str) -> Name<'a> {
         Name { source }
     }
