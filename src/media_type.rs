@@ -191,9 +191,8 @@ impl<'a> From<ParseResult<'a>> for AnyMediaType {
         let mut buffer = String::with_capacity(pres.repr_len());
 
         let (slash_idx, plus_idx, end_of_type) = add_type(&mut buffer, &pres);
-        //get suffix from it
-        let mut params = Vec::new();
-        add_charset_utf8(&mut buffer, &mut params, &pres);
+
+        let mut params = Vec::with_capacity(pres.params.len());
         add_params(&mut buffer, &mut params, &pres);
         
         AnyMediaType {
@@ -220,23 +219,15 @@ fn add_type(buffer: &mut String, pres: &ParseResult) -> (usize, usize, usize) {
 }
 
 #[inline(never)]
-fn add_charset_utf8(buffer: &mut String, params: &mut Vec<ParamIndices>, pres: &ParseResult) {
-    if pres.charset_utf8 {
-        let len = buffer.len();
-        params.push(ParamIndices {
-            eq_idx: len + 9,
-            end_of_value_idx: len + 15,
-        });
-        buffer.push_str("; charset=utf-8");
-    }
-}
-
-#[inline(never)]
 fn add_params(buffer: &mut String, params: &mut Vec<ParamIndices>, pres: &ParseResult) {
     for &(name, value) in pres.params.iter() {
         buffer.push(';');
         buffer.push(' ');
-        buffer.push_str(&*name.to_ascii_lowercase());
+        // speedup for using unsafe push byte.to_ascii_lowercase()'s is 
+        // to little to make it worth to be used
+        for ch in name.chars() {
+            buffer.push(ch.to_ascii_lowercase())
+        }
         let eq_idx = buffer.len();
         buffer.push('=');
         //we normalize somewhere else
