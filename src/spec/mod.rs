@@ -55,6 +55,11 @@ impl<O: ObsNormalSwitch> Seal for HttpSpec<O> {}
 pub struct StrictSpec;
 impl Seal for StrictSpec {}
 
+/// # Note
+///
+/// Because the AnySpec is meant to be able to parse mimes from "any" spec it has to be able
+/// to handle all the thinks from MIME like soft-line brakes and comments in the mime type,
+/// which makes it _slower_ then e.g. HttpSpec
 #[derive(Copy, Clone, Debug)]
 pub struct AnySpec;
 impl Seal for AnySpec {}
