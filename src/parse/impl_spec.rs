@@ -115,6 +115,9 @@ impl<I, O> Spec for MimeSpec<I, O>
 }
 
 fn parse_opt_ws(input: &str) -> IResult<&str, &str> {
-    recognize!(input, many0!(ws))
+    input.bytes()
+        .position(|iu8| iu8 != b' ' && iu8 != b'\t')
+        .map(|idx| IResult::Done(&input[idx..], &input[..idx]))
+        .unwrap_or(IResult::Done("", input))
 }
 
