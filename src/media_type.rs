@@ -187,44 +187,15 @@ impl PartialEq for AnyMediaType {
 
 impl<'a> From<ParseResult<'a>> for AnyMediaType {
 
-    fn from(amtr: ParseResult<'a>) -> Self {
-        let slash_idx;
-        let plus_idx;
-        let end_of_type;
-        let mut params = Vec::new();
+    fn from(pres: ParseResult<'a>) -> Self {
+        let mut buffer = String::with_capacity(pres.repr_len());
 
-        let mut buffer = String::with_capacity(amtr.repr_len());
-        buffer.push_str(amtr.type_);
-        slash_idx = buffer.len();
-        buffer.push('/');
-        buffer.push_str(amtr.subtype);
-        end_of_type = buffer.len();
-        plus_idx = amtr.subtype.bytes()
-            .rposition(|b|b==b'+')
-            .unwrap_or(end_of_type);
+        let (slash_idx, plus_idx, end_of_type) = add_type(&mut buffer, &pres);
         //get suffix from it
-        if amtr.charset_utf8 {
-            let len = buffer.len();
-            params.push(ParamIndices {
-                eq_idx: len + 9,
-                end_of_value_idx: len + 15,
-            });
-            buffer.push_str("; charset=utf-8");
-        }
-        for &(name, value) in amtr.params.iter() {
-            buffer.push(';');
-            buffer.push(' ');
-            buffer.push_str(&*name.to_ascii_lowercase());
-            let eq_idx = buffer.len();
-            buffer.push('=');
-            //we normalize somewhere else
-            buffer.push_str(value);
-            let end_of_value_idx = buffer.len();
-            params.push(ParamIndices {
-                eq_idx, end_of_value_idx
-            })
-        }
-
+        let mut params = Vec::new();
+        add_charset_utf8(&mut buffer, &mut params, &pres);
+        add_params(&mut buffer, &mut params, &pres);
+        
         AnyMediaType {
             buffer,
             slash_idx,
@@ -232,6 +203,48 @@ impl<'a> From<ParseResult<'a>> for AnyMediaType {
             end_of_type,
             params
         }
+    }
+}
+
+#[inline(never)]    
+fn add_type(buffer: &mut String, pres: &ParseResult) -> (usize, usize, usize) {
+    buffer.push_str(pres.type_);
+    let slash_idx = buffer.len();
+    buffer.push('/');
+    buffer.push_str(pres.subtype);
+    let end_of_type = buffer.len();
+    let plus_idx = pres.subtype.bytes()
+        .rposition(|b|b==b'+')
+        .unwrap_or(end_of_type);
+    (slash_idx, plus_idx, end_of_type)
+}
+
+#[inline(never)]
+fn add_charset_utf8(buffer: &mut String, params: &mut Vec<ParamIndices>, pres: &ParseResult) {
+    if pres.charset_utf8 {
+        let len = buffer.len();
+        params.push(ParamIndices {
+            eq_idx: len + 9,
+            end_of_value_idx: len + 15,
+        });
+        buffer.push_str("; charset=utf-8");
+    }
+}
+
+#[inline(never)]
+fn add_params(buffer: &mut String, params: &mut Vec<ParamIndices>, pres: &ParseResult) {
+    for &(name, value) in pres.params.iter() {
+        buffer.push(';');
+        buffer.push(' ');
+        buffer.push_str(&*name.to_ascii_lowercase());
+        let eq_idx = buffer.len();
+        buffer.push('=');
+        //we normalize somewhere else
+        buffer.push_str(value);
+        let end_of_value_idx = buffer.len();
+        params.push(ParamIndices {
+            eq_idx, end_of_value_idx
+        })
     }
 }
 
