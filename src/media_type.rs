@@ -143,16 +143,43 @@ impl PartialEq for AnyMediaType {
             && self.subtype() == other.subtype()
             && self.suffix() == other.suffix()
             && self.params().len() == other.params().len()
-            && {
-                let map = self.params().collect::<HashMap<_,_>>();
-                // we already checked that the len of both is the same
-                // so if all params of other are in map they are equal
-                other.params()
-                    .all(|(other_name, other_value)| {
-                        map.get(&other_name)
-                            .map(|value| other_value == *value)
-                            .unwrap_or(false)
-                    })
+            && match self.params.len() {
+                //OPTIMIZATION: most media types have very little parameter, so we can avoid
+                // the "costy order independent comparsion" for them
+                1 => {
+                    let (name, value) = self.params().next().unwrap();
+                    let (other_name, other_value) = other.params().next().unwrap();
+                    return name == other_name && value == other_value
+                },
+                //FIXME check to which number it makes sense 2?/3?
+                2 => {
+                    let mut params = self.params();
+                    let mut other_params = other.params();
+                    let (name1, value1) = params.next().unwrap();
+                    let (other_name1, other_value1) = other_params.next().unwrap();
+                    let (name2, value2) = params.next().unwrap();
+                    let (other_name2, other_value2) = other_params.next().unwrap();
+                    if name1 == other_name1 {
+                        return value1 == other_value1
+                            && name2 == other_name2 && value2 == other_value2
+                    } else {
+                        return
+                            name1 == other_name2 && value1 == other_value2
+                            && name2 == other_name1 && value2 == other_value1
+                    }
+                },
+                _ => {
+                    //TODO Optimized use on stack map, sort compare?
+                    let map = self.params().collect::<HashMap<_,_>>();
+                    // we already checked that the len of both is the same
+                    // so if all params of other are in map they are equal
+                    other.params()
+                        .all(|(other_name, other_value)| {
+                            map.get(&other_name)
+                                .map(|value| other_value == *value)
+                                .unwrap_or(false)
+                        })
+                }
             }
     }
 }
