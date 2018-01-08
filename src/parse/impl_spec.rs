@@ -24,7 +24,7 @@ impl GeneralQSSpec for HttpSpec<Normal> {
 }
 
 impl GeneralQSSpec for HttpSpec<Obs> {
-    type Quoting = impl_qs_spec::HttpObsQuoting;
+    type Quoting = impl_qs_spec::NormalUtf8Quoting;
     type Parsing = impl_qs_spec::HttpObsParsingImpl;
 }
 
@@ -39,12 +39,12 @@ impl GeneralQSSpec for MimeSpec<Ascii, Obs> {
 }
 
 impl GeneralQSSpec for MimeSpec<Internationalized, Normal> {
-    type Quoting = impl_qs_spec::NormalQuoting;
+    type Quoting = impl_qs_spec::NormalUtf8Quoting;
     type Parsing = impl_qs_spec::MimeParsingUtf8;
 }
 
 impl GeneralQSSpec for MimeSpec<Internationalized, Obs> {
-    type Quoting = impl_qs_spec::MimeObsQuoting;
+    type Quoting = impl_qs_spec::MimeObsUtf8Quoting;
     type Parsing = impl_qs_spec::MimeObsParsingUtf8;
 }
 

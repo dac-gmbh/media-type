@@ -98,7 +98,9 @@ fn parse_media_type_params<S: Spec>(input: &str) -> IResult<&str, Vec<(&str, &st
 mod test {
 
     use ::spec::{HttpSpec, Obs};
-    use super::{parse, parse_media_type_head};
+    use super::parse;
+    #[cfg(all(feature="inner-bench", test))]
+    use super::parse_media_type_head;
 
     //#[cfg(feature="inner-bench")]
     #[cfg(all(feature="inner-bench", test))]
