@@ -16,6 +16,16 @@ fn bench_eq_parsed_both(b: &mut Bencher) {
         assert_eq!(mime, pre_parsed);
     })
 }
+
+#[bench]
+fn bench_eq_parsed_both_non_charset(b: &mut Bencher) {
+    let mime = MediaType::<HttpSpec<Obs>>::parse("text/plain; foo=bar").unwrap();
+    let pre_parsed = MediaType::<HttpSpec<Obs>>::parse("text/plain; foo=bar").unwrap();
+    b.bytes = mime.as_str_repr().len() as u64;
+    b.iter(|| {
+        assert_eq!(mime, pre_parsed);
+    })
+}
 //
 //#[bench]
 //fn bench_eq_consts(b: &mut Bencher) {
@@ -36,6 +46,7 @@ fn bench_ne_parsed_subtype(b: &mut Bencher) {
         assert_ne!(left, right);
     });
 }
+
 
 #[bench]
 fn bench_eq_type_(b: &mut Bencher) {

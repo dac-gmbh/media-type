@@ -20,3 +20,6 @@ quoted-string = { path="../quoted-string"}
 [dependencies.lut]
 path = "../lut"
 features = ["media-type-chars"]
+
+[features]
+inner-bench = []

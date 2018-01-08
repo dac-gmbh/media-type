@@ -99,3 +99,77 @@ fn one_ctext_char<E: MimeParsingExt>(input: &str) -> IResult<&str, ()> {
         IResult::Error(error_code!(ErrorKind::Custom(CoreError::InvalidChar.id() as u32)))
     }
 }
+
+#[cfg(test)]
+mod test {
+    use nom::IResult;
+    use super::super::impl_qs_spec::{MimeObsParsing, MimeParsing};
+    use super::*;
+    
+    #[test]
+    fn empty_comment() {
+        use self::IResult::*;
+        assert_eq!(parse_comment::<MimeObsParsing>("()"), Done("", "()"));
+    }
+
+    #[test]
+    fn simple_comment() {
+        use self::IResult::*;
+        assert_eq!(
+            parse_comment::<MimeObsParsing>("(so is a \"comment)"),
+            Done("", "(so is a \"comment)")
+        );
+    }
+
+    #[test]
+    fn comment_with_quoted_pair() {
+        use self::IResult::*;
+        assert_eq!(
+            parse_comment::<MimeObsParsing>("(so is a \\(comment)"),
+            Done("", "(so is a \\(comment)")
+        );
+    }
+
+    #[test]
+    fn comment_in_comment() {
+        use self::IResult::*;
+        assert_eq!(
+            parse_comment::<MimeObsParsing>("(= (+ (* 2 3) 4) 10)"),
+            Done("", "(= (+ (* 2 3) 4) 10)")
+        );
+    }
+
+    #[test]
+    fn comment_with_fws() {
+        use self::IResult::*;
+        assert_eq!(
+            parse_comment::<MimeObsParsing>("(= (+ \r\n (* 2 3) 4) 10)"),
+            Done("", "(= (+ \r\n (* 2 3) 4) 10)")
+        );
+    }
+
+    #[test]
+    fn comment_with_bad_fws_no_cr() {
+        use self::IResult::*;
+        let res = parse_comment::<MimeObsParsing>("(= (+ \n (* 2 3) 4) 10)");
+        if let Error(_) = res { return; }
+        panic!("expected error got {:?}", res);
+    }
+
+    #[test]
+    fn comment_with_bad_fws_twice_in_row() {
+        use self::IResult::*;
+        let res = parse_comment::<MimeParsing>("(= (+ \r\n \r\n  (* 2 3) 4) 10)");
+        if let Error(_) = res { return; }
+        panic!("expected error got {:?}", res);
+    }
+
+    #[test]
+    fn comment_with_fws_twice_in_row_obs_grammar() {
+        use self::IResult::*;
+        assert_eq!(
+            parse_comment::<MimeObsParsing>("(= (+ \r\n \r\n  (* 2 3) 4) 10)"), 
+            Done("", "(= (+ \r\n \r\n  (* 2 3) 4) 10)")
+        );
+    }
+}

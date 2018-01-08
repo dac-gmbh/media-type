@@ -98,8 +98,14 @@ fn parse_media_type_params<S: Spec>(input: &str) -> IResult<&str, Vec<(&str, &st
 
 #[cfg(test)]
 mod test {
+
     use ::spec::{HttpSpec, Obs};
-    use super::{ParseResult, parse};
+    use super::{ParseResult, parse, parse_media_type_head};
+
+    //#[cfg(feature="inner-bench")]
+    #[cfg(all(feature="inner-bench", test))]
+    use ::test::Bencher;
+
 
     #[test]
     fn parse_charset_utf8() {
@@ -108,11 +114,22 @@ mod test {
         assert_eq!(pres.subtype, "plain");
         assert_eq!(pres.params, vec![("charset", "utf-8")]);
     }
+
+
+
+
+    #[cfg(all(feature="inner-bench", test))]
+    #[bench]
+    fn parse_head(b: &mut Bencher) {
+        let raw = "type/subtype";
+        b.bytes = raw.as_bytes().len() as u64;
+        b.iter(|| {
+            parse_media_type_head::<HttpSpec<Obs>>("type/subtype")
+        })
+    }
+
+
 }
-
-
-
-
 
 
 

@@ -24,6 +24,7 @@ fn validate(b: &mut Bencher) {
     b.iter(|| <MediaType<HttpSpec<Obs>>>::validate(s))
 }
 
+
 #[bench]
 fn from_str_charset_utf8(b: &mut Bencher) {
     let s = "text/plain; charset=utf-8";

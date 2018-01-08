@@ -22,12 +22,16 @@
 //!     _ => println!("not text"),
 //! }
 //! ```
-
 #![doc(html_root_url = "https://docs.rs/mime/0.3.5")]
+#![cfg_attr(feature = "inner-bench", feature(test))]
+
+
 //#![deny(warnings)]
 //#![deny(missing_docs)]
 //#![deny(missing_debug_implementations)]
 
+#[cfg(all(feature = "inner-bench", test))]
+extern crate test;
 
 extern crate unicase;
 extern crate quoted_string;
