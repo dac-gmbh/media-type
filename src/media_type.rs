@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::iter::{Iterator, ExactSizeIterator};
+use std::iter::{IntoIterator, Iterator, ExactSizeIterator};
 use std::slice;
 use std::marker::PhantomData;
 use std::ops::Deref;
@@ -139,11 +139,18 @@ impl AnyMediaType {
 
 impl PartialEq for AnyMediaType {
     fn eq(&self, other: &AnyMediaType) -> bool {
-        self.type_() == other.type_()
-            && self.subtype() == other.subtype()
-            && self.suffix() == other.suffix()
-            && self.params().len() == other.params().len()
-            && match self.params.len() {
+        if self.type_() != other.type_()
+            || self.subtype() != other.subtype()
+            || self.suffix() != other.suffix()
+        {
+            return false;
+        } else {
+            let len = self.params.len();
+            let other_len = other.params.len();
+            if len != other_len { return false; }
+            match len {
+                0 => true,
+
                 //OPTIMIZATION: most media types have very little parameter, so we can avoid
                 // the "costy order independent comparsion" for them
                 1 => {
@@ -165,12 +172,12 @@ impl PartialEq for AnyMediaType {
                     } else {
                         return
                             name1 == other_name2 && value1 == other_value2
-                            && name2 == other_name1 && value2 == other_value1
+                                && name2 == other_name1 && value2 == other_value1
                     }
                 },
                 _ => {
                     //TODO Optimized use on stack map, sort compare?
-                    let map = self.params().collect::<HashMap<_,_>>();
+                    let map = self.params().collect::<HashMap<_, _>>();
                     // we already checked that the len of both is the same
                     // so if all params of other are in map they are equal
                     other.params()
@@ -181,6 +188,7 @@ impl PartialEq for AnyMediaType {
                         })
                 }
             }
+        }
     }
 }
 
@@ -252,6 +260,16 @@ impl<'a> Iterator for Params<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next()
             .map(|pidx| {
+                //TODO OPTIMIZE:
+                //   following removes ca. 30% of the comparsion time
+                //   (for text/plain; param=value)
+                //
+                // let name = unsafe {
+                //     self.source.slice_unchecked(self.last_end_idx+2, pidx.eq_idx)
+                // };
+                // let value = unsafe {
+                //     self.source.slice_unchecked(pidx.eq_idx+1, pidx.end_of_value_idx)
+                // };
                 let name = &self.source[self.last_end_idx+2..pidx.eq_idx];
                 let value = &self.source[pidx.eq_idx+1..pidx.end_of_value_idx];
                 self.last_end_idx = pidx.end_of_value_idx;
