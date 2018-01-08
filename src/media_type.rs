@@ -213,7 +213,7 @@ impl<'a> From<ParseResult<'a>> for AnyMediaType {
     }
 }
 
-#[inline(never)]    
+
 fn add_type(buffer: &mut String, pres: &ParseResult) -> (usize, usize, usize) {
     buffer.push_str(pres.type_);
     let slash_idx = buffer.len();
@@ -226,7 +226,7 @@ fn add_type(buffer: &mut String, pres: &ParseResult) -> (usize, usize, usize) {
     (slash_idx, plus_idx, end_of_type)
 }
 
-#[inline(never)]
+
 fn add_params(buffer: &mut String, params: &mut Vec<ParamIndices>, pres: &ParseResult) {
     for &(name, value) in pres.params.iter() {
         buffer.push(';');
