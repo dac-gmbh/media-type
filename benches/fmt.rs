@@ -3,8 +3,6 @@
 extern crate mime;
 extern crate test;
 
-use mime::MediaType;
-use mime::spec::{HttpSpec, Obs};
 
 use test::Bencher;
 

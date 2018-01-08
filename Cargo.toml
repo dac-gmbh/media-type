@@ -12,7 +12,7 @@ keywords = ["mime", "media-extensions", "media-types"]
 [dependencies]
 unicase = "2.0"
 nom = { version="3.2.1", features=["verbose-errors"] }
-
+media-type-parser-utils = { path="../media-type-parser-utils" }
 quoted-string = { path="../quoted-string"}
 # keep the version compatible with the version used in quoted-string
 # to make sure there is only one char lookup table in the binary

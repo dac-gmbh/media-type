@@ -5,7 +5,8 @@ use lut::media_type_chars::{MediaTypeChars, CText, VCharWs};
 
 use quoted_string::error::CoreError;
 
-use super::utils::{crlf, ws, MimeParsingExt};
+use super::utils::{crlf, ws};
+use media_type_parser_utils::quoted_string_spec::MimeParsingExt;
 
 //TODO OPTIMIZE crate loop0/1 macro as a version of many0/1 which does not create a vector
 
@@ -103,7 +104,7 @@ fn one_ctext_char<E: MimeParsingExt>(input: &str) -> IResult<&str, ()> {
 #[cfg(test)]
 mod test {
     use nom::IResult;
-    use super::super::impl_qs_spec::{MimeObsParsing, MimeParsing};
+    use media_type_parser_utils::quoted_string_spec::{MimeObsParsing, MimeParsing};
     use super::*;
     
     #[test]

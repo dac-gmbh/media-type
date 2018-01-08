@@ -15,19 +15,19 @@ macro_rules! assert_ok {
     });
 }
 
-#[doc(hidden)]
-#[cfg(test)]
-macro_rules! assert_err {
-    ($val:expr) => ({
-        match $val {
-            Ok( val ) => panic!( "expected Err(..) got Ok({:?})", val),
-            Err( err ) => err,
-        }
-    });
-    ($val:expr, $ctx:expr) => ({
-        match $val {
-            Ok( val ) => panic!( "expected Err(..) got Ok({:?}) [ctx: {:?}]", val, $ctx),
-            Err( err ) => err,
-        }
-    });
-}
+//#[doc(hidden)]
+//#[cfg(test)]
+//macro_rules! assert_err {
+//    ($val:expr) => ({
+//        match $val {
+//            Ok( val ) => panic!( "expected Err(..) got Ok({:?})", val),
+//            Err( err ) => err,
+//        }
+//    });
+//    ($val:expr, $ctx:expr) => ({
+//        match $val {
+//            Ok( val ) => panic!( "expected Err(..) got Ok({:?}) [ctx: {:?}]", val, $ctx),
+//            Err( err ) => err,
+//        }
+//    });
+//}

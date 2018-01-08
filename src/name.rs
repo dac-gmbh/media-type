@@ -117,9 +117,7 @@ impl<'a> fmt::Display for Name<'a> {
 
 #[cfg(test)]
 mod test {
-    use std::str::FromStr;
     use super::Name;
-    //use super::super::Mime;
 
     #[test]
     fn test_name_eq_str() {

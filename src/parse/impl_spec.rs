@@ -3,9 +3,8 @@ use nom::IResult;
 
 use quoted_string::spec::GeneralQSSpec;
 
-//FIXME cic import
-use super::utils::{ws, MimeParsingExt};
-use super::impl_qs_spec;
+
+use media_type_parser_utils::quoted_string_spec::{self as impl_qs_spec, MimeParsingExt};
 
 use spec::*;
 

@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::iter::{IntoIterator, Iterator, ExactSizeIterator};
+use std::iter::{Iterator, ExactSizeIterator};
 use std::slice;
 use std::marker::PhantomData;
 use std::ops::Deref;
