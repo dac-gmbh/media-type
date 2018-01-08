@@ -1,7 +1,7 @@
 use nom::{IResult, ErrorKind};
 
 use lut::Table;
-use lut::media_type_chars::{MediaTypeChars, CText, VCharWs};
+use media_type_parser_utils::lookup_tables::{MediaTypeChars, CText, VCharWs};
 
 use quoted_string::error::CoreError;
 
