@@ -59,6 +59,16 @@ impl<S> Deref for MediaType<S>
     }
 }
 
+impl<S> fmt::Display for MediaType<S>
+    where S: Spec
+{
+
+    fn fmt(&self, fter: &mut fmt::Formatter) -> fmt::Result {
+        write!(fter, "{}", self.as_str_repr())
+    }
+}
+
+
 impl<S> Into<AnyMediaType> for MediaType<S>
     where S: Spec
 {
@@ -135,6 +145,13 @@ impl AnyMediaType {
             .unwrap_or(false)
     }
 
+}
+
+impl fmt::Display for AnyMediaType {
+
+    fn fmt(&self, fter: &mut fmt::Formatter) -> fmt::Result {
+        write!(fter, "{}", self.as_str_repr())
+    }
 }
 
 impl PartialEq for AnyMediaType {
