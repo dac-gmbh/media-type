@@ -42,8 +42,8 @@ extern crate nom;
 
 
 pub use quoted_string::AsciiCaseInsensitiveEq;
-pub use self::name::{Name, CHARSET, TEXT};
-pub use self::value::{Value, UTF_8};
+pub use self::name::*;
+pub use self::value::*;
 pub use self::media_type::{MediaType, AnyMediaType, Params};
 
 #[macro_use]

@@ -4,8 +4,41 @@ use std::ops::Deref;
 
 use unicase;
 
-pub static CHARSET: Name = Name { source: "charset" };
-pub static TEXT: Name = Name { source: "text" };
+macro_rules! def_static_names {
+    ($($(#[$attr:meta])* $n:ident = $t:tt;)*) => ($(
+        $(#[$attr])*
+        pub static $n: Name = Name { source: $t };
+    )*);
+}
+
+//the main types
+def_static_names! {
+    APPLICATION = "application";
+    AUDIO = "audio";
+    FONT = "font";
+    IMAGE = "image";
+    MESSAGE = "message";
+    MODEL = "model";
+    MULTIPART = "multipart";
+    TEXT = "text";
+    VIDEO = "video";
+}
+
+// some sub types
+def_static_names! {
+    PLAIN = "plain";
+    JAVASCRIPT = "javascript";
+    PNG = "png";
+    SVG_XML = "svg+xml";
+    //TODO more of them
+}
+
+// some fields
+def_static_names! {
+    CHARSET = "charset";
+    BOUNDARY = "boundary";
+}
+
 
 
 //TODO add Spec :=/
