@@ -1,11 +1,8 @@
 
-use nom::IResult;
-
 use quoted_string::spec::GeneralQSSpec;
-
-
 use media_type_parser_utils::quoted_string_spec::{self as impl_qs_spec, MimeParsingExt};
 
+use error::ParserError;
 use spec::*;
 
 impl GeneralQSSpec for AnySpec {
@@ -50,13 +47,13 @@ impl GeneralQSSpec for MimeSpec<Internationalized, Obs> {
 
 
 impl Spec for StrictSpec {
-    fn parse_token(input: &str) -> IResult<&str, &str> {
+    fn parse_token(input: &str) -> Result<usize, ParserError> {
         let validator = impl_qs_spec::RestrictedTokenValidator::default();
         parse_unquoted_value(input, validator)
     }
 
-    fn parse_space(input: &str) -> IResult<&str, &str> {
-        parse_opt_ws(input)
+    fn parse_space(input: &str) -> Result<usize, ParserError> {
+        Ok(parse_opt_ws(input))
     }
 
     type UnquotedValue = impl_qs_spec::HttpTokenValidator;
@@ -64,12 +61,12 @@ impl Spec for StrictSpec {
 }
 
 impl Spec for AnySpec {
-    fn parse_token(input: &str) -> IResult<&str, &str> {
+    fn parse_token(input: &str) -> Result<usize, ParserError> {
         let validator = impl_qs_spec::MimeTokenValidator::default();
         parse_unquoted_value(input, validator)
     }
 
-    fn parse_space(input: &str) -> IResult<&str, &str> {
+    fn parse_space(input: &str) -> Result<usize, ParserError> {
         use super::parse_cfws::parse_opt_cfws;
         parse_opt_cfws::<<MimeSpec<Internationalized, Obs> as GeneralQSSpec>::Parsing>(input)
     }
@@ -81,12 +78,12 @@ impl Spec for AnySpec {
 impl<O> Spec for HttpSpec<O>
     where O: ObsNormalSwitch, HttpSpec<O>: GeneralQSSpec
 {
-    fn parse_token(input: &str) -> IResult<&str, &str> {
+    fn parse_token(input: &str) -> Result<usize, ParserError> {
         Self::parse_unquoted_value(input)
     }
 
-    fn parse_space(input: &str) -> IResult<&str, &str> {
-        parse_opt_ws(input)
+    fn parse_space(input: &str) -> Result<usize, ParserError> {
+        Ok(parse_opt_ws(input))
     }
 
     type UnquotedValue = impl_qs_spec::HttpTokenValidator;
@@ -102,21 +99,20 @@ impl<I, O> Spec for MimeSpec<I, O>
 
     type UnquotedValue = impl_qs_spec::MimeTokenValidator;
 
-    fn parse_token(input: &str) -> IResult<&str, &str> {
+    fn parse_token(input: &str) -> Result<usize, ParserError> {
         Self::parse_unquoted_value(input)
     }
 
-    fn parse_space(input: &str) -> IResult<&str, &str> {
+    fn parse_space(input: &str) -> Result<usize, ParserError> {
         use super::parse_cfws::parse_opt_cfws;
         parse_opt_cfws::<<MimeSpec<I,O> as GeneralQSSpec>::Parsing>(input)
     }
 
 }
 
-fn parse_opt_ws(input: &str) -> IResult<&str, &str> {
+fn parse_opt_ws(input: &str) -> usize {
     input.bytes()
         .position(|iu8| iu8 != b' ' && iu8 != b'\t')
-        .map(|idx| IResult::Done(&input[idx..], &input[..idx]))
-        .unwrap_or(IResult::Done("", input))
+        .unwrap_or(input.len())
 }
 

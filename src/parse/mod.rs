@@ -1,8 +1,8 @@
 #[allow(unused_imports)]
 use std::ascii::AsciiExt;
 
-use nom::Err;
-use nom::IResult;
+use error::ParserError;
+use self::utils::parse_ascii_char;
 
 pub use ::spec::{
     Spec,
@@ -18,26 +18,28 @@ mod utils;
 mod impl_spec;
 mod parse_cfws;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct ParamPosition {
+    pub(crate) start: usize,
+    pub(crate) eq_idx: usize,
+    pub(crate) end: usize
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) struct ParseResult<'a> {
-    pub(crate) type_: &'a str,
-    pub(crate) subtype: &'a str,
-    pub(crate) params: Vec<(&'a str, &'a str)>
+    pub(crate) input: &'a str,
+    pub(crate) slash_idx: usize,
+    pub(crate) end_of_type_idx: usize,
+    pub(crate) params: Vec<ParamPosition>
 }
 
 impl<'a> ParseResult<'a> {
 
     pub(crate) fn repr_len(&self) -> usize {
-        let mut len = self.type_.len()
-            + 1
-            //FIXME add suffix
-            + self.subtype.len();
-
-        for &(name, value) in self.params.iter() {
-            len += 1 + name.len() + 1 + value.len()
-        }
-
-        len
+        self.params
+            .last()
+            .map(|param| param.end)
+            .unwrap_or(self.end_of_type_idx)
     }
 }
 
@@ -45,52 +47,61 @@ pub(crate) fn validate<S: Spec>(input: &str) -> bool {
     parse::<S>(input).is_ok()
 }
 
-pub(crate) fn parse<S: Spec>(input: &str) -> Result<ParseResult, Err<&str>> {
-    complete!(input, call!(parse_media_type::<S>)).to_result()
+pub(crate) fn parse<'a, S: Spec>(input: &'a str) -> Result<ParseResult, ParserError<'a>> {
+    let (slash_idx, end_of_type_idx) = parse_media_type_head::<S>(input)?;
+    let params = parse_media_type_params::<S>(input, end_of_type_idx)?;
+    Ok(ParseResult { input, slash_idx, end_of_type_idx, params })
 }
 
-fn parse_media_type<S: Spec>(input: &str) -> IResult<&str, ParseResult> {
-    do_parse!(input,
-        head: call!(parse_media_type_head::<S>) >>
-        params: call!(parse_media_type_params::<S>) >>
-        (ParseResult {
-            type_: head.0,
-            subtype: head.1,
-            params: params
-        })
-    )
+
+
+fn parse_media_type_head<S: Spec>(input: &str) -> Result<(usize, usize), ParserError> {
+    let slash_idx = S::parse_token(input)?;
+    let start_of_subtype = parse_ascii_char(input, slash_idx, b'/')?;
+    let end_of_type_idx = at_pos!(start_of_subtype do S::parse_token | input);
+    Ok((slash_idx, end_of_type_idx))
 }
 
-fn parse_media_type_head<S: Spec>(input: &str) -> IResult<&str, (&str, &str)> {
-    do_parse!(input,
-        type_: call!(S::parse_token) >>
-        char!('/') >>
-        //FIXME consider the suffic
-        subtype: call!(S::parse_token) >>
-        call!(S::parse_space) >>
-        (type_, subtype)
-    )
-}
 
-fn parse_media_type_params<S: Spec>(input: &str) -> IResult<&str, Vec<(&str, &str)>> {
-    map!(input, tuple!(
-        many0!(
-            do_parse!(
-                char!(';') >>
-                call!(S::parse_space) >>
-                name: call!(S::parse_token) >>
-                char!('=') >>
-                value: alt_complete!(
-                    call!(S::parse_quoted_string) |
-                    call!(S::parse_unquoted_value)
 
-                ) >>
-                (name, value)
-            )
-        ),
-        call!(S::parse_space),
-        eof!()
-    ),  |tpl| tpl.0)
+
+fn parse_media_type_params<S: Spec>(input: &str, offset: usize)
+    -> Result<Vec<ParamPosition>, ParserError>
+{
+    let mut out = Vec::new();
+    let mut offset = offset;
+    loop {
+        //1. parse ws
+        let sc_idx = at_pos!(offset do S::parse_space | input );
+        //2. if tail end { break }
+        if sc_idx == input.len() { break }
+        //3. parse ;
+        let after_sc_idx = parse_ascii_char(input, sc_idx, b';')?;
+        //4. parse ws
+        let param_name_start = at_pos!(after_sc_idx do S::parse_space | input);
+        //5. parse token
+        let param_eq_idx = at_pos!(param_name_start do S::parse_token | input);
+        //6. parse =
+        let param_value_start = parse_ascii_char(input, param_eq_idx, b'=')?;
+        //7. if next == '"' { parse quoted_value } else { parse unquoed_value }
+        let param_end_idx;
+        if input.as_bytes().get(param_value_start) == Some(&b'"') {
+            param_end_idx = at_pos!(param_value_start do S::parse_quoted_string | input);
+        } else {
+            param_end_idx = at_pos!(param_value_start do S::parse_unquoted_value | input);
+        }
+
+        out.push(ParamPosition {
+            start: param_name_start,
+            eq_idx: param_eq_idx,
+            end: param_end_idx
+        });
+
+        offset = param_end_idx;
+    }
+
+    Ok(out)
+
 }
 
 
@@ -98,7 +109,7 @@ fn parse_media_type_params<S: Spec>(input: &str) -> IResult<&str, Vec<(&str, &st
 mod test {
 
     use ::spec::{HttpSpec, Obs};
-    use super::parse;
+    use super::{parse, ParseResult, ParamPosition};
     #[cfg(all(feature="inner-bench", test))]
     use super::parse_media_type_head;
 
@@ -109,10 +120,14 @@ mod test {
 
     #[test]
     fn parse_charset_utf8() {
-        let pres = assert_ok!(parse::<HttpSpec<Obs>>("text/plain; charset=utf-8"));
-        assert_eq!(pres.type_, "text");
-        assert_eq!(pres.subtype, "plain");
-        assert_eq!(pres.params, vec![("charset", "utf-8")]);
+        let pres: ParseResult = assert_ok!(parse::<HttpSpec<Obs>>("text/plain; charset=utf-8"));
+        assert_eq!(pres.slash_idx, 4);
+        assert_eq!(pres.end_of_type_idx, 10);
+        assert_eq!(pres.params, vec![ParamPosition {
+            start: 12,
+            eq_idx: 19,
+            end: 25
+        }]);
     }
 
 

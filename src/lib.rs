@@ -37,8 +37,6 @@ extern crate media_type_parser_utils;
 extern crate unicase;
 extern crate quoted_string;
 extern crate lut;
-#[macro_use]
-extern crate nom;
 
 
 pub use quoted_string::AsciiCaseInsensitiveEq;

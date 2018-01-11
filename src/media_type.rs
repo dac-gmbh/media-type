@@ -6,8 +6,8 @@ use std::ops::Deref;
 use std::fmt::{self, Debug};
 
 
-use nom::Err;
 
+use error::ParserError;
 use name::{Name, CHARSET};
 use value::{Value, UTF_8, UTF8};
 
@@ -29,7 +29,7 @@ pub struct MediaType<S: Spec> {
 impl<S> MediaType<S>
     where S: Spec
 {
-    pub fn parse(input: &str) -> Result<Self, Err<&str>> {
+    pub fn parse(input: &str) -> Result<Self, ParserError> {
         let parse_result: ParseResult = parse::<S>(input)?;
         let media_type: AnyMediaType = parse_result.into();
         Ok(MediaType { inner: media_type, _spec: PhantomData })
@@ -212,13 +212,12 @@ impl PartialEq for AnyMediaType {
 
 impl<'a> From<ParseResult<'a>> for AnyMediaType {
 
-    fn from(pres: ParseResult<'a>) -> Self {
+    fn from(pres: ParseResult) -> Self {
         let mut buffer = String::with_capacity(pres.repr_len());
 
         let (slash_idx, plus_idx, end_of_type) = add_type(&mut buffer, &pres);
 
-        let mut params = Vec::with_capacity(pres.params.len());
-        add_params(&mut buffer, &mut params, &pres);
+        let params = add_params(&mut buffer, &pres);
         
         AnyMediaType {
             buffer,
@@ -232,36 +231,37 @@ impl<'a> From<ParseResult<'a>> for AnyMediaType {
 
 
 fn add_type(buffer: &mut String, pres: &ParseResult) -> (usize, usize, usize) {
-    buffer.push_str(pres.type_);
-    let slash_idx = buffer.len();
-    buffer.push('/');
-    buffer.push_str(pres.subtype);
-    let end_of_type = buffer.len();
-    let plus_idx = pres.subtype.bytes()
-        .rposition(|b|b==b'+')
-        .unwrap_or(end_of_type);
-    (slash_idx, plus_idx, end_of_type)
+    let input = pres.input;
+    let plus_idx = input[pres.slash_idx..pres.end_of_type_idx].bytes()
+        .rposition(|b| b==b'+')
+        .unwrap_or(pres.end_of_type_idx);
+
+    buffer.push_str(&input[..pres.end_of_type_idx]);
+
+    (pres.slash_idx, plus_idx, pres.end_of_type_idx)
 }
 
 
-fn add_params(buffer: &mut String, params: &mut Vec<ParamIndices>, pres: &ParseResult) {
-    for &(name, value) in pres.params.iter() {
+fn add_params(buffer: &mut String, pres: &ParseResult) -> Vec<ParamIndices> {
+    let input = pres.input;
+    let mut params = Vec::with_capacity(pres.params.len());
+    for param_pos in pres.params.iter() {
         buffer.push(';');
         buffer.push(' ');
-        // speedup for using unsafe push byte.to_ascii_lowercase()'s is 
+        let new_start = buffer.len();
+        // speedup for using unsafe push byte.to_ascii_lowercase()'s is
         // to little to make it worth to be used
-        for ch in name.chars() {
+        for ch in input[param_pos.start..param_pos.eq_idx].chars() {
             buffer.push(ch.to_ascii_lowercase())
         }
-        let eq_idx = buffer.len();
-        buffer.push('=');
-        //we normalize somewhere else
-        buffer.push_str(value);
-        let end_of_value_idx = buffer.len();
+        buffer.push_str(&input[param_pos.eq_idx..param_pos.end]);
+        let start_diff = param_pos.start as isize - new_start as isize;
         params.push(ParamIndices {
-            eq_idx, end_of_value_idx
+            eq_idx: (param_pos.eq_idx as isize - start_diff) as usize,
+            end_of_value_idx: (param_pos.end as isize - start_diff) as usize,
         })
     }
+    params
 }
 
 #[derive(Clone)]

@@ -1,34 +1,35 @@
 use std::marker::PhantomData;
 use std::fmt::Debug;
 
-use nom::{IResult, ErrorKind};
+use error::ParserError;
 use seal::Seal;
 
 
+use quoted_string::parse as qs_parse;
 use quoted_string::error::CoreError;
 use quoted_string::spec::{GeneralQSSpec, PartialCodePoint, WithoutQuotingValidator};
 
 pub trait Spec: Seal + GeneralQSSpec {
     type UnquotedValue: WithoutQuotingValidator + Default;
 
-    fn parse_token(input: &str) -> IResult<&str, &str>;
-    fn parse_space(input: &str) -> IResult<&str, &str>;
+    fn parse_token(input: &str) -> Result<usize, ParserError>;
+    fn parse_space(input: &str) -> Result<usize, ParserError>;
 
-    fn parse_unquoted_value(input: &str) -> IResult<&str, &str> {
+    fn parse_unquoted_value(input: &str) -> Result<usize, ParserError> {
         //Http token is MimeToken - '{' - '}'
         let validator = Self::UnquotedValue::default();
         parse_unquoted_value(input, validator)
     }
 
-    fn parse_quoted_string(input: &str) -> IResult<&str, &str> {
-        use quoted_string::parse;
-        match parse::<Self>(input) {
-            Ok(p) => IResult::Done(p.tail, p.quoted_string),
-            Err((_pos, e)) => {
-                let err = ErrorKind::Custom(e.id() as u32);
-                IResult::Error(error_code!(err))
-            }
+    fn parse_quoted_string(input: &str) -> Result<usize, ParserError> {
+        match qs_parse::<Self>(input) {
+            //we just want the offset
+            Ok(pres) => Ok(pres.quoted_string.len()),
+            Err((pos, cause)) => Err(ParserError::QuotedParamValue {
+                input, pos, cause
+            })
         }
+
     }
 }
 
@@ -38,15 +39,15 @@ pub trait InternationalizedSwitch: Seal+Copy+Clone+Debug {}
 
 #[derive(Copy, Clone, Debug)]
 pub struct MimeSpec<
-    TP: InternationalizedSwitch = Ascii,
-    O: ObsNormalSwitch = Normal
+    TP: InternationalizedSwitch = Internationalized,
+    O: ObsNormalSwitch = Obs
 >(PhantomData<(TP,O)>);
 
 impl<T: InternationalizedSwitch, O: ObsNormalSwitch> Seal for MimeSpec<T, O> {}
 
 #[derive(Copy, Clone, Debug)]
 pub struct HttpSpec<
-    O: ObsNormalSwitch = Normal
+    O: ObsNormalSwitch = Obs
 >(PhantomData<O>);
 
 impl<O: ObsNormalSwitch> Seal for HttpSpec<O> {}
@@ -87,7 +88,7 @@ impl InternationalizedSwitch for Internationalized {}
 
 // It would be nicer to have it in parse but it's needed for the default impl
 // and placing it in parse would lead to a circular dependency
-pub(crate) fn parse_unquoted_value<V>(input: &str, mut validator: V) -> IResult<&str, &str>
+pub(crate) fn parse_unquoted_value<V>(input: &str, mut validator: V) -> Result<usize, ParserError>
     where V: WithoutQuotingValidator
 {
     let mut end_idx = None;
@@ -99,14 +100,15 @@ pub(crate) fn parse_unquoted_value<V>(input: &str, mut validator: V) -> IResult<
     }
     let pos = end_idx.unwrap_or(input.len());
     if pos == 0 {
-        let err = ErrorKind::Custom(CoreError::ZeroSizedValue.id() as u32);
-        return IResult::Error(error_position!(err, input));
+        return Err(ParserError::UnquotedParamValue {
+            input, pos, cause: CoreError::ZeroSizedValue
+        });
     }
     if validator.end() {
-        let (parsed, rest) = input.split_at(end_idx.unwrap_or(input.len()));
-        return IResult::Done(rest, parsed)
+        Ok(pos)
     } else {
-        let err = ErrorKind::Custom(CoreError::InvalidChar.id() as u32);
-        return IResult::Error(error_position!(err, &input[pos..]));
+        return Err(ParserError::UnquotedParamValue {
+            input, pos, cause: CoreError::InvalidChar
+        });
     }
 }
