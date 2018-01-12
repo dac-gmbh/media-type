@@ -7,7 +7,7 @@ use unicase;
 macro_rules! def_static_names {
     ($($(#[$attr:meta])* $n:ident = $t:tt;)*) => ($(
         $(#[$attr])*
-        pub static $n: Name = Name { source: $t };
+        pub const $n: Name = Name { source: $t };
     )*);
 }
 
