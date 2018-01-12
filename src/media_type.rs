@@ -12,15 +12,10 @@ use name::{Name, CHARSET};
 use value::{Value, UTF_8, UTF8};
 
 
-use parse::{Spec, ParseResult, parse, validate};
+use parse::{Spec, ParseResult, ParamIndices, parse, validate};
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-struct ParamIndices {
-    eq_idx: usize,
-    end_of_value_idx: usize
-}
 
-#[derive(Clone, Debug, Eq)]
+#[derive(Clone, Debug)]
 pub struct MediaType<S: Spec> {
     inner: AnyMediaType,
     _spec: PhantomData<S>
@@ -77,7 +72,7 @@ impl<S> Into<AnyMediaType> for MediaType<S>
     }
 }
 
-#[derive(Clone, Eq, Debug)]
+#[derive(Clone,  Debug)]
 pub struct AnyMediaType {
     //idx layout
     //                              /plus_idx if there is no suffix, buffer.len() if there are no parameters
@@ -89,7 +84,7 @@ pub struct AnyMediaType {
     buffer: String,
     slash_idx: usize,
     /// is equal the end_type_idx if there is no plus
-    plus_idx: usize,
+    //plus_idx: usize,
     /// it is the index behind the last character of the subtype(inkl. suffix) which is equal to the
     /// index of the ";" of the first parameter or the len of the buffer if there are no parameter
     end_of_type: usize,
@@ -103,18 +98,19 @@ impl AnyMediaType {
     }
 
     pub fn subtype(&self) -> Name {
-        Name::new_unchecked(&self.buffer[self.slash_idx+1..self.plus_idx])
+        Name::new_unchecked(&self.buffer[self.slash_idx+1..self.end_of_type])
+        //Name::new_unchecked(&self.buffer[self.slash_idx+1..self.plus_idx])
     }
 
-    pub fn suffix(&self) -> Option<Name> {
-        let suffix_start = self.plus_idx+1;
-        let end_idx = self.end_of_type;
-        if suffix_start < end_idx {
-            Some(Name::new_unchecked(&self.buffer[suffix_start..end_idx]))
-        } else {
-            None
-        }
-    }
+//    pub fn suffix(&self) -> Option<Name> {
+//        let suffix_start = self.plus_idx+1;
+//        let end_idx = self.end_of_type;
+//        if suffix_start < end_idx {
+//            Some(Name::new_unchecked(&self.buffer[suffix_start..end_idx]))
+//        } else {
+//            None
+//        }
+//    }
 
     pub fn get_param<'a, N>(&'a self, attr: N) -> Option<Value<'a>>
         where N: PartialEq<Name<'a>>
@@ -127,8 +123,7 @@ impl AnyMediaType {
     pub fn params(&self) -> Params {
         Params {
             iter: self.params.iter(),
-            source: self.buffer.as_str(),
-            last_end_idx: self.end_of_type
+            source: self.buffer.as_str()
         }
     }
 
@@ -158,7 +153,7 @@ impl PartialEq for AnyMediaType {
     fn eq(&self, other: &AnyMediaType) -> bool {
         if self.type_() != other.type_()
             || self.subtype() != other.subtype()
-            || self.suffix() != other.suffix()
+            //|| self.suffix() != other.suffix()
         {
             return false;
         } else {
@@ -213,61 +208,36 @@ impl PartialEq for AnyMediaType {
 impl<'a> From<ParseResult<'a>> for AnyMediaType {
 
     fn from(pres: ParseResult) -> Self {
-        let mut buffer = String::with_capacity(pres.repr_len());
+        let mut buffer;
+        if pres.params.len() == 0 {
+            buffer = pres.input[..pres.repr_len()].to_ascii_lowercase();
+        } else {
+            buffer = String::from(&pres.input[..pres.repr_len()]);
 
-        let (slash_idx, plus_idx, end_of_type) = add_type(&mut buffer, &pres);
+            buffer[0..pres.end_of_type_idx]
+                .make_ascii_lowercase();
 
-        let params = add_params(&mut buffer, &pres);
-        
+            for param_indices in pres.params.iter() {
+                buffer[param_indices.start..param_indices.eq_idx].make_ascii_lowercase();
+            }
+        }
+
         AnyMediaType {
             buffer,
-            slash_idx,
-            plus_idx,
-            end_of_type,
-            params
+            slash_idx: pres.slash_idx,
+            end_of_type: pres.end_of_type_idx,
+            params: pres.params
         }
     }
 }
 
 
-fn add_type(buffer: &mut String, pres: &ParseResult) -> (usize, usize, usize) {
-    let input = pres.input;
-    let plus_idx = input[pres.slash_idx..pres.end_of_type_idx].bytes()
-        .rposition(|b| b==b'+')
-        .unwrap_or(pres.end_of_type_idx);
-
-    buffer.push_str(&input[..pres.end_of_type_idx]);
-
-    (pres.slash_idx, plus_idx, pres.end_of_type_idx)
-}
 
 
-fn add_params(buffer: &mut String, pres: &ParseResult) -> Vec<ParamIndices> {
-    let input = pres.input;
-    let mut params = Vec::with_capacity(pres.params.len());
-    for param_pos in pres.params.iter() {
-        buffer.push(';');
-        buffer.push(' ');
-        let new_start = buffer.len();
-        // speedup for using unsafe push byte.to_ascii_lowercase()'s is
-        // to little to make it worth to be used
-        for ch in input[param_pos.start..param_pos.eq_idx].chars() {
-            buffer.push(ch.to_ascii_lowercase())
-        }
-        buffer.push_str(&input[param_pos.eq_idx..param_pos.end]);
-        let start_diff = param_pos.start as isize - new_start as isize;
-        params.push(ParamIndices {
-            eq_idx: (param_pos.eq_idx as isize - start_diff) as usize,
-            end_of_value_idx: (param_pos.end as isize - start_diff) as usize,
-        })
-    }
-    params
-}
 
 #[derive(Clone)]
 pub struct Params<'a> {
     source: &'a str,
-    last_end_idx: usize,
     iter: slice::Iter<'a, ParamIndices>
 }
 
@@ -278,18 +248,11 @@ impl<'a> Iterator for Params<'a> {
         self.iter.next()
             .map(|pidx| {
                 //TODO OPTIMIZE:
-                //   following removes ca. 30% of the comparsion time
+                //   using unsafe slace removes ca. 30% of the comparsion time
                 //   (for text/plain; param=value)
-                //
-                // let name = unsafe {
-                //     self.source.slice_unchecked(self.last_end_idx+2, pidx.eq_idx)
-                // };
-                // let value = unsafe {
-                //     self.source.slice_unchecked(pidx.eq_idx+1, pidx.end_of_value_idx)
-                // };
-                let name = &self.source[self.last_end_idx+2..pidx.eq_idx];
-                let value = &self.source[pidx.eq_idx+1..pidx.end_of_value_idx];
-                self.last_end_idx = pidx.end_of_value_idx;
+
+                let name = &self.source[pidx.start..pidx.eq_idx];
+                let value = &self.source[pidx.eq_idx+1..pidx.end];
                 (Name::new_unchecked(name), Value::new_unchecked(value))
             })
     }

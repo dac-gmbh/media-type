@@ -19,7 +19,7 @@ mod impl_spec;
 mod parse_cfws;
 
 #[derive(Debug, Clone, PartialEq)]
-pub(crate) struct ParamPosition {
+pub(crate) struct ParamIndices {
     pub(crate) start: usize,
     pub(crate) eq_idx: usize,
     pub(crate) end: usize
@@ -30,7 +30,7 @@ pub(crate) struct ParseResult<'a> {
     pub(crate) input: &'a str,
     pub(crate) slash_idx: usize,
     pub(crate) end_of_type_idx: usize,
-    pub(crate) params: Vec<ParamPosition>
+    pub(crate) params: Vec<ParamIndices>
 }
 
 impl<'a> ParseResult<'a> {
@@ -66,7 +66,7 @@ fn parse_media_type_head<S: Spec>(input: &str) -> Result<(usize, usize), ParserE
 
 
 fn parse_media_type_params<S: Spec>(input: &str, offset: usize)
-    -> Result<Vec<ParamPosition>, ParserError>
+    -> Result<Vec<ParamIndices>, ParserError>
 {
     let mut out = Vec::new();
     let mut offset = offset;
@@ -91,7 +91,7 @@ fn parse_media_type_params<S: Spec>(input: &str, offset: usize)
             param_end_idx = at_pos!(param_value_start do S::parse_unquoted_value | input);
         }
 
-        out.push(ParamPosition {
+        out.push(ParamIndices {
             start: param_name_start,
             eq_idx: param_eq_idx,
             end: param_end_idx
@@ -109,7 +109,7 @@ fn parse_media_type_params<S: Spec>(input: &str, offset: usize)
 mod test {
 
     use ::spec::{HttpSpec, Obs};
-    use super::{parse, ParseResult, ParamPosition};
+    use super::{parse, ParseResult, ParamIndices};
     #[cfg(all(feature="inner-bench", test))]
     use super::parse_media_type_head;
 
@@ -123,7 +123,7 @@ mod test {
         let pres: ParseResult = assert_ok!(parse::<HttpSpec<Obs>>("text/plain; charset=utf-8"));
         assert_eq!(pres.slash_idx, 4);
         assert_eq!(pres.end_of_type_idx, 10);
-        assert_eq!(pres.params, vec![ParamPosition {
+        assert_eq!(pres.params, vec![ParamIndices {
             start: 12,
             eq_idx: 19,
             end: 25
