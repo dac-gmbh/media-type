@@ -2,8 +2,6 @@ use std::cmp::PartialEq;
 use std::fmt;
 use std::ops::Deref;
 
-use unicase;
-
 macro_rules! def_static_names {
     ($($(#[$attr:meta])* $n:ident = $t:tt;)*) => ($(
         $(#[$attr])*
@@ -94,7 +92,7 @@ impl<'a> Deref for Name<'a> {
 impl<'a> PartialEq<str> for Name<'a> {
     #[inline]
     fn eq(&self, other: &str) -> bool {
-        unicase::eq_ascii(self.source, other)
+        self.source.eq_ignore_ascii_case(other)
     }
 }
 

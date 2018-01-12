@@ -1,11 +1,11 @@
-use error::{ParserError, ExpectedChar};
+use error::{ParserErrorKind, ParserErrorRef, ExpectedChar};
 
 
 use lut::Table;
 use media_type_parser_utils::lookup_tables::{MediaTypeChars, CText, VCharWs};
 use media_type_parser_utils::quoted_string_spec::MimeParsingExt;
 
-pub fn parse_opt_cfws<E: MimeParsingExt>(input: &str) -> Result<usize, ParserError> {
+pub fn parse_opt_cfws<E: MimeParsingExt>(input: &str) -> Result<usize, ParserErrorRef> {
     //CFWS = (1*([FWS] comment) [FWS]) / FWS
     //parse just: *([FWS] comment) [FWS]
     // which is fine as its a opt CFWS so empty "" is ok, and
@@ -21,7 +21,7 @@ pub fn parse_opt_cfws<E: MimeParsingExt>(input: &str) -> Result<usize, ParserErr
     }
 }
 
-fn parse_opt_fws<E: MimeParsingExt>(input: &str, offset: usize) -> Result<usize, ParserError> {
+fn parse_opt_fws<E: MimeParsingExt>(input: &str, offset: usize) -> Result<usize, ParserErrorRef> {
     if E::OBS {
         _parse_fws_obs(input, offset)
     } else {
@@ -30,7 +30,7 @@ fn parse_opt_fws<E: MimeParsingExt>(input: &str, offset: usize) -> Result<usize,
 }
 
 #[inline]
-fn _parse_fws_obs(input: &str, offset: usize) -> Result<usize, ParserError> {
+fn _parse_fws_obs(input: &str, offset: usize) -> Result<usize, ParserErrorRef> {
     // obs-FWS  =  1*([CRLF] WSP)
     // parse *([CRLF] WSP) as it's optional obs-fws
     let mut offset = offset;
@@ -47,7 +47,7 @@ fn _parse_fws_obs(input: &str, offset: usize) -> Result<usize, ParserError> {
 }
 
 #[inline]
-fn _parse_fws_modern(input: &str, offset: usize) -> Result<usize, ParserError> {
+fn _parse_fws_modern(input: &str, offset: usize) -> Result<usize, ParserErrorRef> {
     let offset = parse_opt_ws_seq(input, offset);
     let crlf_offset = parse_opt_crlf_seq(input, offset)?;
     if crlf_offset == offset {
@@ -58,7 +58,7 @@ fn _parse_fws_modern(input: &str, offset: usize) -> Result<usize, ParserError> {
 }
 
 
-fn opt_parse_comment<E>(input: &str) -> Result<Option<usize>, ParserError>
+fn opt_parse_comment<E>(input: &str) -> Result<Option<usize>, ParserErrorRef>
     where E: MimeParsingExt
 {
     if input.as_bytes().get(0) == Some(&b'(') {
@@ -70,7 +70,7 @@ fn opt_parse_comment<E>(input: &str) -> Result<Option<usize>, ParserError>
 }
 
 /// starts parsing after the initial '('
-fn inner_parse_comment<E>(input: &str, offset: usize) -> Result<usize, ParserError>
+fn inner_parse_comment<E>(input: &str, offset: usize) -> Result<usize, ParserErrorRef>
     where E: MimeParsingExt
 {
     // comment  =  "(" *([FWS] ccontent) [FWS] ")"
@@ -101,28 +101,30 @@ fn inner_parse_comment<E>(input: &str, offset: usize) -> Result<usize, ParserErr
                     return Ok(offset);
                 },
                 b'\r' | b'\n'  => {
-                    return Err(ParserError::IllegalCrNlSeq { input, pos: offset - 1 });
+                    return Err(
+                        ParserErrorKind::IllegalCrNlSeq { pos: offset - 1 }
+                        .with_input(input)
+                    );
                 }
                 _ => {
                     let charclass =
                         if E::ALLOW_UTF8 { "ctext / non-ascii-utf8 / '(' / ')' / '\\'" }
                         else { "ctext / '(' / ')' / '\\'" };
 
-                    return Err(ParserError::UnexpectedChar {
-                        input,
+                    return Err(ParserErrorKind::UnexpectedChar {
                         //remember offset already points to the next char
                         pos: offset - 1,
                         expected: ExpectedChar::CharClass(charclass)
-                    });
+                    }.with_input(input));
                 }
             }
         } else {
-            return Err(ParserError::UnexpectedEof { input });
+            return Err(ParserErrorKind::UnexpectedEof.with_input(input));
         }
     }
 }
 
-fn parse_quotable<E: MimeParsingExt>(input: &str, offset: usize) -> Result<usize, ParserError>  {
+fn parse_quotable<E: MimeParsingExt>(input: &str, offset: usize) -> Result<usize, ParserErrorRef>  {
     if let Some(&byte) = input.as_bytes().get(offset) {
         let valid =
             if E::OBS {
@@ -134,13 +136,14 @@ fn parse_quotable<E: MimeParsingExt>(input: &str, offset: usize) -> Result<usize
             Ok(offset + 1)
         } else {
             let charclass = if E::OBS { "quotable/obs-quotabe" } else { "quotable" };
-            Err(ParserError::UnexpectedChar {
-                input, pos: offset,
-                expected: ExpectedChar::CharClass(charclass)
-            })
+            Err(
+                ParserErrorKind::UnexpectedChar {
+                    pos: offset, expected: ExpectedChar::CharClass(charclass)
+                }.with_input(input)
+            )
         }
     } else {
-        Err(ParserError::UnexpectedEof { input })
+        Err(ParserErrorKind::UnexpectedEof.with_input(input))
     }
 }
 
@@ -154,7 +157,7 @@ fn parse_quotable<E: MimeParsingExt>(input: &str, offset: usize) -> Result<usize
 /// either `"\n "` or `"\n\t"`
 ///
 #[inline]
-pub fn parse_opt_crlf_seq(input: &str, offset: usize) -> Result<usize, ParserError> {
+pub fn parse_opt_crlf_seq(input: &str, offset: usize) -> Result<usize, ParserErrorRef> {
     if input.as_bytes().get(offset) != Some(&b'\r') {
         Ok(offset)
     } else {
@@ -163,9 +166,7 @@ pub fn parse_opt_crlf_seq(input: &str, offset: usize) -> Result<usize, ParserErr
                return Ok(offset + 3)
             }
         }
-        Err(ParserError::IllegalCrNlSeq {
-            input, pos: offset
-        })
+        Err(ParserErrorKind::IllegalCrNlSeq { pos: offset }.with_input(input))
     }
 }
 
@@ -256,29 +257,29 @@ mod test {
         fn obs_with_bad_fws_no_cr() {
             let text = "(= (+ \n (* 2 3) 4) 10)";
             let res = opt_parse_comment::<MimeObsParsing>(text);
-            assert_eq!(res, Err(ParserError::IllegalCrNlSeq {
-                input: "(= (+ \n (* 2 3) 4) 10)",
-                pos: 6
-            }));
+            assert_eq!(res, Err(
+                ParserErrorKind::IllegalCrNlSeq { pos: 6 }
+                    .with_input("(= (+ \n (* 2 3) 4) 10)")
+            ));
         }
 
         #[test]
         fn with_bad_fws_no_cr() {
             let text = "(= (+ \n (* 2 3) 4) 10)";
             let res = opt_parse_comment::<MimeParsing>(text);
-            assert_eq!(res, Err(ParserError::IllegalCrNlSeq {
-                input: "(= (+ \n (* 2 3) 4) 10)",
-                pos: 6
-            }));
+            assert_eq!(res, Err(
+                ParserErrorKind::IllegalCrNlSeq { pos: 6 }
+                    .with_input("(= (+ \n (* 2 3) 4) 10)")
+            ));
         }
 
         #[test]
         fn with_bad_fws_twice_in_row() {
             let res = opt_parse_comment::<MimeParsing>("(= (+ \r\n \r\n  (* 2 3) 4) 10)");
-            assert_eq!(res, Err(ParserError::IllegalCrNlSeq {
-                input: "(= (+ \r\n \r\n  (* 2 3) 4) 10)",
-                pos: 9
-            }));
+            assert_eq!(res, Err(
+                ParserErrorKind::IllegalCrNlSeq { pos: 9 }
+                    .with_input("(= (+ \r\n \r\n  (* 2 3) 4) 10)")
+            ));
         }
 
         #[test]

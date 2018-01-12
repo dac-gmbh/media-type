@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 use std::fmt::Debug;
 
-use error::ParserError;
+use error::{ParserErrorRef, ParserErrorKind};
 use seal::Seal;
 
 
@@ -12,22 +12,22 @@ use quoted_string::spec::{GeneralQSSpec, PartialCodePoint, WithoutQuotingValidat
 pub trait Spec: Seal + GeneralQSSpec {
     type UnquotedValue: WithoutQuotingValidator + Default;
 
-    fn parse_token(input: &str) -> Result<usize, ParserError>;
-    fn parse_space(input: &str) -> Result<usize, ParserError>;
+    fn parse_token(input: &str) -> Result<usize, ParserErrorRef>;
+    fn parse_space(input: &str) -> Result<usize, ParserErrorRef>;
 
-    fn parse_unquoted_value(input: &str) -> Result<usize, ParserError> {
+    fn parse_unquoted_value(input: &str) -> Result<usize, ParserErrorRef> {
         //Http token is MimeToken - '{' - '}'
         let validator = Self::UnquotedValue::default();
         parse_unquoted_value(input, validator)
     }
 
-    fn parse_quoted_string(input: &str) -> Result<usize, ParserError> {
+    fn parse_quoted_string(input: &str) -> Result<usize, ParserErrorRef> {
         match qs_parse::<Self>(input) {
             //we just want the offset
             Ok(pres) => Ok(pres.quoted_string.len()),
-            Err((pos, cause)) => Err(ParserError::QuotedParamValue {
-                input, pos, cause
-            })
+            Err((pos, cause)) => {
+                Err(ParserErrorKind::QuotedParamValue { pos, cause }.with_input(input))
+            }
         }
 
     }
@@ -88,7 +88,7 @@ impl InternationalizedSwitch for Internationalized {}
 
 // It would be nicer to have it in parse but it's needed for the default impl
 // and placing it in parse would lead to a circular dependency
-pub(crate) fn parse_unquoted_value<V>(input: &str, mut validator: V) -> Result<usize, ParserError>
+pub(crate) fn parse_unquoted_value<V>(input: &str, mut validator: V) -> Result<usize, ParserErrorRef>
     where V: WithoutQuotingValidator
 {
     let mut end_idx = None;
@@ -100,15 +100,15 @@ pub(crate) fn parse_unquoted_value<V>(input: &str, mut validator: V) -> Result<u
     }
     let pos = end_idx.unwrap_or(input.len());
     if pos == 0 {
-        return Err(ParserError::UnquotedParamValue {
-            input, pos, cause: CoreError::ZeroSizedValue
-        });
+        return Err(ParserErrorKind::UnquotedParamValue {
+            pos, cause: CoreError::ZeroSizedValue
+        }.with_input(input));
     }
     if validator.end() {
         Ok(pos)
     } else {
-        return Err(ParserError::UnquotedParamValue {
-            input, pos, cause: CoreError::InvalidChar
-        });
+        return Err(ParserErrorKind::UnquotedParamValue {
+            pos, cause: CoreError::InvalidChar
+        }.with_input(input));
     }
 }

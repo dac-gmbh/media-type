@@ -7,7 +7,7 @@ use std::fmt::{self, Debug};
 
 
 
-use error::ParserError;
+use error::ParserErrorRef;
 use name::{Name, CHARSET};
 use value::{Value, UTF_8, UTF8};
 
@@ -24,7 +24,7 @@ pub struct MediaType<S: Spec> {
 impl<S> MediaType<S>
     where S: Spec
 {
-    pub fn parse(input: &str) -> Result<Self, ParserError> {
+    pub fn parse(input: &str) -> Result<Self, ParserErrorRef> {
         let parse_result: ParseResult = parse::<S>(input)?;
         let media_type: AnyMediaType = parse_result.into();
         Ok(MediaType { inner: media_type, _spec: PhantomData })

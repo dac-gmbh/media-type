@@ -34,7 +34,6 @@
 extern crate test;
 
 extern crate media_type_parser_utils;
-extern crate unicase;
 extern crate quoted_string;
 extern crate lut;
 

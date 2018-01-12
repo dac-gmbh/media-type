@@ -2,7 +2,7 @@
 use quoted_string::spec::GeneralQSSpec;
 use media_type_parser_utils::quoted_string_spec::{self as impl_qs_spec, MimeParsingExt};
 
-use error::ParserError;
+use error::ParserErrorRef;
 use spec::*;
 
 impl GeneralQSSpec for AnySpec {
@@ -47,12 +47,12 @@ impl GeneralQSSpec for MimeSpec<Internationalized, Obs> {
 
 
 impl Spec for StrictSpec {
-    fn parse_token(input: &str) -> Result<usize, ParserError> {
+    fn parse_token(input: &str) -> Result<usize, ParserErrorRef> {
         let validator = impl_qs_spec::RestrictedTokenValidator::default();
         parse_unquoted_value(input, validator)
     }
 
-    fn parse_space(input: &str) -> Result<usize, ParserError> {
+    fn parse_space(input: &str) -> Result<usize, ParserErrorRef> {
         Ok(parse_opt_ws(input))
     }
 
@@ -61,12 +61,12 @@ impl Spec for StrictSpec {
 }
 
 impl Spec for AnySpec {
-    fn parse_token(input: &str) -> Result<usize, ParserError> {
+    fn parse_token(input: &str) -> Result<usize, ParserErrorRef> {
         let validator = impl_qs_spec::MimeTokenValidator::default();
         parse_unquoted_value(input, validator)
     }
 
-    fn parse_space(input: &str) -> Result<usize, ParserError> {
+    fn parse_space(input: &str) -> Result<usize, ParserErrorRef> {
         use super::parse_cfws::parse_opt_cfws;
         parse_opt_cfws::<<MimeSpec<Internationalized, Obs> as GeneralQSSpec>::Parsing>(input)
     }
@@ -78,11 +78,11 @@ impl Spec for AnySpec {
 impl<O> Spec for HttpSpec<O>
     where O: ObsNormalSwitch, HttpSpec<O>: GeneralQSSpec
 {
-    fn parse_token(input: &str) -> Result<usize, ParserError> {
+    fn parse_token(input: &str) -> Result<usize, ParserErrorRef> {
         Self::parse_unquoted_value(input)
     }
 
-    fn parse_space(input: &str) -> Result<usize, ParserError> {
+    fn parse_space(input: &str) -> Result<usize, ParserErrorRef> {
         Ok(parse_opt_ws(input))
     }
 
@@ -99,11 +99,11 @@ impl<I, O> Spec for MimeSpec<I, O>
 
     type UnquotedValue = impl_qs_spec::MimeTokenValidator;
 
-    fn parse_token(input: &str) -> Result<usize, ParserError> {
+    fn parse_token(input: &str) -> Result<usize, ParserErrorRef> {
         Self::parse_unquoted_value(input)
     }
 
-    fn parse_space(input: &str) -> Result<usize, ParserError> {
+    fn parse_space(input: &str) -> Result<usize, ParserErrorRef> {
         use super::parse_cfws::parse_opt_cfws;
         parse_opt_cfws::<<MimeSpec<I,O> as GeneralQSSpec>::Parsing>(input)
     }

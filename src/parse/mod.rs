@@ -1,7 +1,7 @@
 #[allow(unused_imports)]
 use std::ascii::AsciiExt;
 
-use error::ParserError;
+use error::ParserErrorRef;
 use self::utils::parse_ascii_char;
 
 pub use ::spec::{
@@ -47,7 +47,7 @@ pub(crate) fn validate<S: Spec>(input: &str) -> bool {
     parse::<S>(input).is_ok()
 }
 
-pub(crate) fn parse<'a, S: Spec>(input: &'a str) -> Result<ParseResult, ParserError<'a>> {
+pub(crate) fn parse<'a, S: Spec>(input: &'a str) -> Result<ParseResult, ParserErrorRef<'a>> {
     let (slash_idx, end_of_type_idx) = parse_media_type_head::<S>(input)?;
     let params = parse_media_type_params::<S>(input, end_of_type_idx)?;
     Ok(ParseResult { input, slash_idx, end_of_type_idx, params })
@@ -55,7 +55,7 @@ pub(crate) fn parse<'a, S: Spec>(input: &'a str) -> Result<ParseResult, ParserEr
 
 
 
-fn parse_media_type_head<S: Spec>(input: &str) -> Result<(usize, usize), ParserError> {
+fn parse_media_type_head<S: Spec>(input: &str) -> Result<(usize, usize), ParserErrorRef> {
     let slash_idx = S::parse_token(input)?;
     let start_of_subtype = parse_ascii_char(input, slash_idx, b'/')?;
     let end_of_type_idx = at_pos!(start_of_subtype do S::parse_token | input);
@@ -66,7 +66,7 @@ fn parse_media_type_head<S: Spec>(input: &str) -> Result<(usize, usize), ParserE
 
 
 fn parse_media_type_params<S: Spec>(input: &str, offset: usize)
-    -> Result<Vec<ParamIndices>, ParserError>
+    -> Result<Vec<ParamIndices>, ParserErrorRef>
 {
     let mut out = Vec::new();
     let mut offset = offset;
