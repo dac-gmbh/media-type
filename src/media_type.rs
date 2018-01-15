@@ -295,19 +295,17 @@ mod test {
     }
 
     #[test]
-    fn parsing_normalizes_whitespaces() {
+    fn parsing_does_not_normalizes_whitespaces() {
         let mt: MediaType<_> = assert_ok!(MediaType::<AnySpec>::parse("text/plain   ;charset=utf-8"));
         assert!(mt.has_utf8_charset());
-        assert_eq!(mt.as_str_repr(), "text/plain; charset=utf-8");
+        assert_eq!(mt.as_str_repr(), "text/plain   ;charset=utf-8");
     }
 
-    //FIXME this functionality might be dropped
-    #[ignore]
     #[test]
-    fn parsing_normalized_utf8() {
+    fn parsing_does_not_normalized_utf8() {
         let mt: MediaType<_> = assert_ok!(MediaType::<AnySpec>::parse("text/plain; charset=utf8"));
         assert!(mt.has_utf8_charset());
-        assert_eq!(mt.as_str_repr(), "text/plain; charset=utf-8");
+        assert_eq!(mt.as_str_repr(), "text/plain; charset=utf8");
     }
 
 

@@ -1,6 +1,6 @@
 
 use quoted_string::spec::GeneralQSSpec;
-use media_type_parser_utils::quoted_string_spec::{self as impl_qs_spec, MimeParsingExt};
+use media_type_parser_utils::quoted_string::{self as impl_qs_spec, MimeParsingExt};
 
 use error::ParserErrorRef;
 use spec::*;
@@ -48,7 +48,7 @@ impl GeneralQSSpec for MimeSpec<Internationalized, Obs> {
 
 impl Spec for StrictSpec {
     fn parse_token(input: &str) -> Result<usize, ParserErrorRef> {
-        let validator = impl_qs_spec::RestrictedTokenValidator::default();
+        let validator = impl_qs_spec::StrictTokenValidator::default();
         parse_unquoted_value(input, validator)
     }
 
