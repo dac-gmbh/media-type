@@ -88,9 +88,9 @@ impl Seal for Obs {}
 impl ObsNormalSwitch for Obs {}
 
 #[derive(Copy, Clone, Debug)]
-pub struct Normal;
-impl Seal for Normal {}
-impl ObsNormalSwitch for Normal {}
+pub struct Modern;
+impl Seal for Modern {}
+impl ObsNormalSwitch for Modern {}
 
 #[derive(Copy, Clone, Debug)]
 pub struct Ascii;

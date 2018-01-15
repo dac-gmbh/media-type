@@ -16,7 +16,7 @@ impl GeneralQSSpec for StrictSpec {
     type Parsing = impl_qs_spec::StrictParsingImpl;
 }
 
-impl GeneralQSSpec for HttpSpec<Normal> {
+impl GeneralQSSpec for HttpSpec<Modern> {
     type Quoting = impl_qs_spec::NormalQuoting;
     type Parsing = impl_qs_spec::NormalParsingImpl;
 }
@@ -26,7 +26,7 @@ impl GeneralQSSpec for HttpSpec<Obs> {
     type Parsing = impl_qs_spec::HttpObsParsingImpl;
 }
 
-impl GeneralQSSpec for MimeSpec<Ascii, Normal> {
+impl GeneralQSSpec for MimeSpec<Ascii, Modern> {
     type Quoting = impl_qs_spec::NormalQuoting;
     type Parsing = impl_qs_spec::MimeParsing;
 }
@@ -36,7 +36,7 @@ impl GeneralQSSpec for MimeSpec<Ascii, Obs> {
     type Parsing = impl_qs_spec::MimeObsParsing;
 }
 
-impl GeneralQSSpec for MimeSpec<Internationalized, Normal> {
+impl GeneralQSSpec for MimeSpec<Internationalized, Modern> {
     type Quoting = impl_qs_spec::NormalUtf8Quoting;
     type Parsing = impl_qs_spec::MimeParsingUtf8;
 }

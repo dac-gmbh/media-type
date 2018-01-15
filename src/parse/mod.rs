@@ -8,7 +8,7 @@ pub use ::spec::{
     Spec,
     StrictSpec,
     MimeSpec, HttpSpec,
-    Obs, Normal, Internationalized, Ascii,
+    Obs, Modern, Internationalized, Ascii,
     ObsNormalSwitch, InternationalizedSwitch,
     AnySpec
 };

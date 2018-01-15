@@ -436,7 +436,7 @@ mod test {
     mod from_parts {
         use super::super::MediaType;
         use error::{ParserError, ParserErrorKind, ExpectedChar};
-        use spec::{HttpSpec, MimeSpec, Ascii, Normal};
+        use spec::{HttpSpec, MimeSpec, Ascii, Modern};
 
         fn empty() -> Vec<(&'static str, &'static str)> {
             Vec::new()
@@ -534,7 +534,7 @@ mod test {
 
         #[test]
         fn in_mime_modern_0_is_pencoded() {
-            let mt = MediaType::<MimeSpec<Ascii, Normal>>::from_parts("text", "x.my", vec![
+            let mt = MediaType::<MimeSpec<Ascii, Modern>>::from_parts("text", "x.my", vec![
                 ("foo", "b\0r")
             ]);
             assert_eq!(
