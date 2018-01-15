@@ -10,9 +10,10 @@ repository = "https://github.com/hyperium/mime"
 keywords = ["mime", "media-extensions", "media-types"]
 
 [dependencies]
-media-type-parser-utils = { git = "https://github.com/1aim/media-type-parser-utils" }
+media-type-impl-utils = { git = "https://github.com/1aim/media-type-impl-utils" }
 quoted-string = { git="https://github.com/1aim/quoted-string"}
 lut = { git = "https://github.com/1aim/lut", features = ["media-type-chars"] }
+percent-encoding = "1.0.0"
 
 [features]
 inner-bench = []

@@ -2,8 +2,8 @@ use error::{ParserErrorKind, ParserErrorRef, ExpectedChar};
 
 
 use lut::Table;
-use media_type_parser_utils::lookup_tables::{MediaTypeChars, CText, VCharWs};
-use media_type_parser_utils::quoted_string::MimeParsingExt;
+use media_type_impl_utils::lookup_tables::{MediaTypeChars, CText, VCharWs};
+use media_type_impl_utils::quoted_string::MimeParsingExt;
 
 pub fn parse_opt_cfws<E: MimeParsingExt>(input: &str) -> Result<usize, ParserErrorRef> {
     //CFWS = (1*([FWS] comment) [FWS]) / FWS
@@ -189,7 +189,7 @@ pub fn parse_opt_ws_seq(input: &str, offset: usize) -> usize {
 mod test {
 
     mod opt_parse_comment {
-        use media_type_parser_utils::quoted_string::{MimeObsParsing, MimeParsing};
+        use media_type_impl_utils::quoted_string::{MimeObsParsing, MimeParsing};
         use super::super::*;
 
         #[test]

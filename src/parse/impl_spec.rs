@@ -1,6 +1,7 @@
 
 use quoted_string::spec::GeneralQSSpec;
-use media_type_parser_utils::quoted_string::{self as impl_qs_spec, MimeParsingExt};
+use media_type_impl_utils::quoted_string::{self as impl_qs_spec, MimeParsingExt};
+use media_type_impl_utils::percent_encoding::{MimePercentEncodeSet, HttpPercentEncodeSet};
 
 use error::ParserErrorRef;
 use spec::*;

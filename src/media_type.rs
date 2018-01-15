@@ -4,10 +4,12 @@ use std::slice;
 use std::marker::PhantomData;
 use std::ops::Deref;
 use std::fmt::{self, Debug};
+use std::borrow::Cow;
 
+use quoted_string::quote_if_needed;
+use percent_encoding::percent_encode;
 
-
-use error::ParserErrorRef;
+use error::{ParserError, ParserErrorRef};
 use name::{Name, CHARSET};
 use value::{Value, UTF_8, UTF8};
 

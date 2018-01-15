@@ -33,7 +33,8 @@
 #[cfg(all(feature = "inner-bench", test))]
 extern crate test;
 
-extern crate media_type_parser_utils;
+extern crate percent_encoding;
+extern crate media_type_impl_utils;
 extern crate quoted_string;
 extern crate lut;
 

@@ -149,6 +149,12 @@ impl<'a> StdError for ParserErrorRef<'a> {
     }
 }
 
+impl<'a> From<ParserErrorRef<'a>> for ParserError {
+    fn from(pref: ParserErrorRef<'a>) -> Self {
+        pref.to_owned()
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ParserError {
     input: String,
