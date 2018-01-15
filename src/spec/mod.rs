@@ -1,19 +1,36 @@
 use std::marker::PhantomData;
 use std::fmt::Debug;
 
-use error::{ParserErrorRef, ParserErrorKind};
+use error::{ParserErrorRef, ParserErrorKind, ExpectedChar};
 use seal::Seal;
 
+use percent_encoding::EncodeSet;
 
 use quoted_string::parse as qs_parse;
 use quoted_string::error::CoreError;
 use quoted_string::spec::{GeneralQSSpec, PartialCodePoint, WithoutQuotingValidator};
 
 pub trait Spec: Seal + GeneralQSSpec {
+
+    type PercentEncodeSet: EncodeSet + Default;
+
     type UnquotedValue: WithoutQuotingValidator + Default;
 
     fn parse_token(input: &str) -> Result<usize, ParserErrorRef>;
     fn parse_space(input: &str) -> Result<usize, ParserErrorRef>;
+
+    fn validate_token(input: &str) -> Result<(), ParserErrorRef> {
+        let end = Self::parse_token(input)?;
+        debug_assert!(end <= input.len(), "end is a index in input, so it's <= input.len()");
+        if end == input.len() {
+            Ok(())
+        } else {
+            Err(ParserErrorKind::UnexpectedChar {
+                pos: end,
+                expected: ExpectedChar::CharClass("token char")
+            }.with_input(input))
+        }
+    }
 
     fn parse_unquoted_value(input: &str) -> Result<usize, ParserErrorRef> {
         //Http token is MimeToken - '{' - '}'

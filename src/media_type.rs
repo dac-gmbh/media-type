@@ -35,6 +35,85 @@ impl<S> MediaType<S>
     pub fn validate(input: &str) -> bool {
         validate::<S>(input)
     }
+
+    pub fn from_parts<T, ST, PI, IN, IV>(
+        type_: T, subtype: ST, params: PI
+    )-> Result<Self, ParserError>
+        where T: AsRef<str>,
+              ST: AsRef<str>,
+              PI: IntoIterator<Item=(IN, IV)>,
+              IN: AsRef<str>,
+              IV: AsRef<str> //<- we would want something here which can take a Value
+    {
+        let type_ = type_.as_ref();
+        S::validate_token(type_)?;
+
+        let subtype = subtype.as_ref();
+        S::validate_token(subtype)?;
+
+        let mut buffer = String::new();
+
+        buffer.push_str(type_);
+        let slash_idx = buffer.len();
+
+        buffer.push('/');
+        buffer.push_str(subtype);
+        let end_of_type = buffer.len();
+
+        let mut param_indices = Vec::new();
+
+        for (name, value) in params.into_iter() {
+            let name = <IN as AsRef<str>>::as_ref(&name);
+            let value = <IV as AsRef<str>>::as_ref(&value);
+            S::validate_token(name)?;
+            //TODO percent encode+split if value > threshold && it's MIME spec
+            match quote_if_needed::<S, _>(value.as_ref(), &mut S::UnquotedValue::default()) {
+                Ok(quoted_if_needed) => {
+                    let value = quoted_if_needed.as_ref();
+                    buffer.push_str("; ");
+                    let start = buffer.len();
+
+                    buffer.push_str(name);
+                    let eq_idx = buffer.len();
+
+                    buffer.push('=');
+                    buffer.push_str(value);
+                    let end = buffer.len();
+
+                    param_indices.push(ParamIndices { start, eq_idx, end });
+                },
+                Err(_err) => {
+                    let value: Cow<str> =
+                        percent_encode(value.as_bytes(), S::PercentEncodeSet::default()).into();
+
+                    buffer.push_str("; ");
+                    let start = buffer.len();
+
+                    buffer.push_str(name);
+                    buffer.push('*');
+                    let eq_idx = buffer.len();
+
+                    buffer.push('=');
+                    buffer.push_str("utf8''");
+                    buffer.push_str(&*value);
+                    let end = buffer.len();
+
+                    param_indices.push(ParamIndices { start, eq_idx, end });
+                }
+            }
+        }
+
+        Ok(MediaType {
+            inner: AnyMediaType {
+                buffer,
+                slash_idx,
+                end_of_type,
+                params: param_indices,
+            },
+            _spec: PhantomData
+        })
+
+    }
 }
 
 impl<S1, S2> PartialEq<MediaType<S2>> for MediaType<S1>
@@ -65,7 +144,6 @@ impl<S> fmt::Display for MediaType<S>
     }
 }
 
-
 impl<S> Into<AnyMediaType> for MediaType<S>
     where S: Spec
 {
@@ -73,6 +151,8 @@ impl<S> Into<AnyMediaType> for MediaType<S>
         self.inner
     }
 }
+
+
 
 #[derive(Clone,  Debug)]
 pub struct AnyMediaType {
@@ -351,5 +431,116 @@ mod test {
             MediaType::<StrictSpec>::parse("text/plain; p2=\"b\"; p1=a"));
 
         assert_eq!(mt1, mt2);
+    }
+
+    mod from_parts {
+        use super::super::MediaType;
+        use error::{ParserError, ParserErrorKind, ExpectedChar};
+        use spec::{HttpSpec, MimeSpec, Ascii, Normal};
+
+        fn empty() -> Vec<(&'static str, &'static str)> {
+            Vec::new()
+        }
+
+        #[test]
+        fn validates_type() {
+            let mt = MediaType::<HttpSpec>::from_parts("ba{d", "ok", empty());
+            assert_eq!(mt, Err(ParserError::new("ba{d", ParserErrorKind::UnexpectedChar {
+                pos: 2,
+                expected: ExpectedChar::CharClass("token char")
+            })))
+        }
+
+        #[test]
+        fn validates_subtype() {
+            let mt = MediaType::<HttpSpec>::from_parts("text", "n[k", empty());
+            assert_eq!(mt, Err(ParserError::new("n[k", ParserErrorKind::UnexpectedChar {
+                pos: 1,
+                expected: ExpectedChar::CharClass("token char")
+            })));
+        }
+
+        #[test]
+        fn validates_parameter_names() {
+            let mt = MediaType::<HttpSpec>::from_parts("text", "x.my", vec![
+                ("good", "value"),
+                ("b[ad]", "key")
+            ]);
+            assert_eq!(mt, Err(ParserError::new("b[ad]", ParserErrorKind::UnexpectedChar {
+                pos: 1,
+                expected: ExpectedChar::CharClass("token char")
+            })))
+        }
+
+
+        #[test]
+        fn simple_creation_works() {
+            let mt = MediaType::<HttpSpec>::from_parts("text", "plain", empty());
+            assert_eq!(mt.unwrap().as_str_repr(), "text/plain")
+        }
+
+        #[test]
+        fn creation_with_parameters_works() {
+            let mt = MediaType::<HttpSpec>::from_parts("text", "plain", vec![
+                ("charset", "utf-8")
+            ]);
+            assert_eq!(mt.unwrap().as_str_repr(), "text/plain; charset=utf-8");
+        }
+
+        #[test]
+        fn use_quoting_if_needed() {
+            let mt = MediaType::<HttpSpec>::from_parts("text", "x.plain", vec![
+                ("charset", "utf-8"),
+                ("source", "dat file")
+            ]);
+            assert_eq!(
+                mt.unwrap().as_str_repr(),
+                "text/x.plain; charset=utf-8; source=\"dat file\""
+            );
+        }
+
+        #[test]
+        fn use_quoted_pair_if_needed() {
+            let mt = MediaType::<HttpSpec>::from_parts("text", "x.mage", vec![
+                ("comment", "it\"has")
+            ]);
+            assert_eq!(
+                mt.unwrap().as_str_repr(),
+                r#"text/x.mage; comment="it\"has""#
+            );
+        }
+
+        #[test]
+        fn use_perc_encode_for_values_if_needed() {
+            let mt = MediaType::<HttpSpec>::from_parts("text", "x.my", vec![
+                ("key", "va\0lue")
+            ]);
+            assert_eq!(
+                mt.unwrap().as_str_repr(),
+                "text/x.my; key*=utf8''va%00lue"
+            )
+        }
+
+        #[test]
+        fn in_mime_obs_0_is_quoted() {
+            let mt = MediaType::<MimeSpec>::from_parts("text", "x.my", vec![
+                ("foo", "b\0r")
+            ]);
+            assert_eq!(
+                mt.unwrap().as_str_repr(),
+                "text/x.my; foo=\"b\\\0r\""
+            );
+        }
+
+        #[test]
+        fn in_mime_modern_0_is_pencoded() {
+            let mt = MediaType::<MimeSpec<Ascii, Normal>>::from_parts("text", "x.my", vec![
+                ("foo", "b\0r")
+            ]);
+            assert_eq!(
+                mt.unwrap().as_str_repr(),
+                "text/x.my; foo*=utf8''b%00r"
+            );
+        }
     }
 }

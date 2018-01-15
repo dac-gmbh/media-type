@@ -48,6 +48,9 @@ impl GeneralQSSpec for MimeSpec<Internationalized, Obs> {
 
 
 impl Spec for StrictSpec {
+    //is Http is like mime but forbids '{','}' so using it here is fine
+    type PercentEncodeSet = HttpPercentEncodeSet;
+
     fn parse_token(input: &str) -> Result<usize, ParserErrorRef> {
         let validator = impl_qs_spec::StrictTokenValidator::default();
         parse_unquoted_value(input, validator)
@@ -62,6 +65,9 @@ impl Spec for StrictSpec {
 }
 
 impl Spec for AnySpec {
+    //is Http is like mime but forbids '{','}' so we use the mime set
+    type PercentEncodeSet = MimePercentEncodeSet;
+
     fn parse_token(input: &str) -> Result<usize, ParserErrorRef> {
         let validator = impl_qs_spec::MimeTokenValidator::default();
         parse_unquoted_value(input, validator)
@@ -79,6 +85,8 @@ impl Spec for AnySpec {
 impl<O> Spec for HttpSpec<O>
     where O: ObsNormalSwitch, HttpSpec<O>: GeneralQSSpec
 {
+    type PercentEncodeSet = HttpPercentEncodeSet;
+
     fn parse_token(input: &str) -> Result<usize, ParserErrorRef> {
         Self::parse_unquoted_value(input)
     }
@@ -98,6 +106,7 @@ impl<I, O> Spec for MimeSpec<I, O>
           <MimeSpec<I,O> as GeneralQSSpec>::Parsing: MimeParsingExt
 {
 
+    type PercentEncodeSet = MimePercentEncodeSet;
     type UnquotedValue = impl_qs_spec::MimeTokenValidator;
 
     fn parse_token(input: &str) -> Result<usize, ParserErrorRef> {
@@ -116,4 +125,3 @@ fn parse_opt_ws(input: &str) -> usize {
         .position(|iu8| iu8 != b' ' && iu8 != b'\t')
         .unwrap_or(input.len())
 }
-
