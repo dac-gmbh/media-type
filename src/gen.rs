@@ -1,5 +1,3 @@
-use std::borrow::Cow;
-
 use quoted_string::quote_if_needed;
 use percent_encoding::percent_encode;
 
@@ -81,8 +79,8 @@ fn buffer_encode_and_push_param<S: Spec>(
     buffer: &mut String, name: &str, value: &str
 ) -> ParamIndices
 {
-    let value: Cow<str> =
-        percent_encode(value.as_bytes(), S::PercentEncodeSet::default()).into();
+    let encoded_value_parts =
+        percent_encode(value.as_bytes(), S::PercentEncodeSet::default());
 
     buffer.push_str(PARAM_SEP);
 
@@ -94,7 +92,9 @@ fn buffer_encode_and_push_param<S: Spec>(
     buffer.push(PARAM_KV_SEP);
 
     buffer.push_str(PARAM_ENC_VALUE_PREFIX);
-    buffer.push_str(&*value);
+    for value_part in encoded_value_parts {
+        buffer.push_str(value_part);
+    }
     let end = buffer.len();
 
     ParamIndices { start, eq_idx, end }
