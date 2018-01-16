@@ -15,5 +15,12 @@ quoted-string = { git="https://github.com/1aim/quoted-string"}
 lut = { git = "https://github.com/1aim/lut", features = ["media-type-chars"] }
 percent-encoding = "1.0.0"
 
+[[test]]
+name = "features"
+required-features = [ "expose-param-utils" ]
+path = "tests/features.rs"
+
+
 [features]
 inner-bench = []
+expose-param-utils = []

@@ -44,6 +44,11 @@ pub use self::name::*;
 pub use self::value::*;
 pub use self::media_type::{MediaType, AnyMediaType, Params};
 
+#[cfg(feature="expose-param-utils")]
+pub use parse::ParamIndices;
+#[cfg(feature="expose-param-utils")]
+pub use gen::push_params_to_buffer;
+
 #[macro_use]
 mod macros;
 pub mod error;

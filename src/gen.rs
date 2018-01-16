@@ -36,7 +36,19 @@ pub(crate) fn create_buffer_from<S>(
     Ok((buffer, slash_idx, end_of_type))
 }
 
-pub(crate) fn push_params_to_buffer<S, I, IN, IV>(buffer: &mut String, params: I)
+/// Pushs the parameters formatted to the output buffer
+///
+/// each parameter is preceded by "; " followed by <name> then "=",
+/// then <value>. If the value needed to be quoted it will be quoted,
+/// if the value needs to be encoded it's encoded (and "*" is added to the
+/// parameter name.
+///
+/// # Error
+///
+/// an error is returned if a parameter name is not valid for the given
+/// Spec `S`.
+///
+pub fn push_params_to_buffer<S, I, IN, IV>(buffer: &mut String, params: I)
     -> Result<Vec<ParamIndices>, ParserError>
     where S: Spec,
           I: IntoIterator<Item=(IN,IV)>,

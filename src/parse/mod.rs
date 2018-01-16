@@ -19,10 +19,10 @@ mod impl_spec;
 mod parse_cfws;
 
 #[derive(Debug, Clone, PartialEq)]
-pub(crate) struct ParamIndices {
-    pub(crate) start: usize,
-    pub(crate) eq_idx: usize,
-    pub(crate) end: usize
+pub struct ParamIndices {
+    pub start: usize,
+    pub eq_idx: usize,
+    pub end: usize
 }
 
 #[derive(Debug, Clone, PartialEq)]
