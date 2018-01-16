@@ -22,7 +22,7 @@
 //!     _ => println!("not text"),
 //! }
 //! ```
-#![doc(html_root_url = "https://docs.rs/mime/0.3.5")]
+#![doc(html_root_url = "https://docs.rs/mime/0.4.0")]
 #![cfg_attr(feature = "inner-bench", feature(test))]
 
 
