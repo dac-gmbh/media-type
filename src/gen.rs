@@ -11,6 +11,12 @@ const TYPE_SEP: char = '/';
 const PARAM_ENC_NAME_SUFFIC: char = '*';
 const PARAM_ENC_VALUE_PREFIX: &str = "utf-8''";
 
+//TODO replace key=value: (AsRef<str>, AsRef<str>) with T: KeyValue
+// where trait KeyValue { fn key -> &str, fn value -> ??, fn lang_tag -> Option<&str> }
+// with default impl for (&str, &str)
+// not that fn value -> ?? has to work in a way that it can handle ->Value<- with to_content
+// (we can't use repr, as we do not know if Value Spec if compatible with out Spec)
+
 pub(crate) fn create_buffer_from<S>(
     type_: &str, subtype: &str
 ) -> Result<(String, usize, usize), ParserError>
