@@ -4,15 +4,14 @@ use std::slice;
 use std::marker::PhantomData;
 use std::ops::Deref;
 use std::fmt::{self, Debug};
-use std::borrow::Cow;
-
-use quoted_string::quote_if_needed;
-use percent_encoding::percent_encode;
 
 use error::{ParserError, ParserErrorRef};
 use name::{Name, CHARSET};
 use value::{Value, UTF_8, UTF8};
-
+use gen::{
+    create_buffer_from,
+    push_params_to_buffer
+};
 
 use parse::{Spec, ParseResult, ParamIndices, parse, validate};
 
@@ -45,63 +44,11 @@ impl<S> MediaType<S>
               IN: AsRef<str>,
               IV: AsRef<str> //<- we would want something here which can take a Value
     {
-        let type_ = type_.as_ref();
-        S::validate_token(type_)?;
+        let (mut buffer, slash_idx, end_of_type) =
+            create_buffer_from::<S>(type_.as_ref(), subtype.as_ref())?;
 
-        let subtype = subtype.as_ref();
-        S::validate_token(subtype)?;
-
-        let mut buffer = String::new();
-
-        buffer.push_str(type_);
-        let slash_idx = buffer.len();
-
-        buffer.push('/');
-        buffer.push_str(subtype);
-        let end_of_type = buffer.len();
-
-        let mut param_indices = Vec::new();
-
-        for (name, value) in params.into_iter() {
-            let name = <IN as AsRef<str>>::as_ref(&name);
-            let value = <IV as AsRef<str>>::as_ref(&value);
-            S::validate_token(name)?;
-            //TODO percent encode+split if value > threshold && it's MIME spec
-            match quote_if_needed::<S, _>(value.as_ref(), &mut S::UnquotedValue::default()) {
-                Ok(quoted_if_needed) => {
-                    let value = quoted_if_needed.as_ref();
-                    buffer.push_str("; ");
-                    let start = buffer.len();
-
-                    buffer.push_str(name);
-                    let eq_idx = buffer.len();
-
-                    buffer.push('=');
-                    buffer.push_str(value);
-                    let end = buffer.len();
-
-                    param_indices.push(ParamIndices { start, eq_idx, end });
-                },
-                Err(_err) => {
-                    let value: Cow<str> =
-                        percent_encode(value.as_bytes(), S::PercentEncodeSet::default()).into();
-
-                    buffer.push_str("; ");
-                    let start = buffer.len();
-
-                    buffer.push_str(name);
-                    buffer.push('*');
-                    let eq_idx = buffer.len();
-
-                    buffer.push('=');
-                    buffer.push_str("utf8''");
-                    buffer.push_str(&*value);
-                    let end = buffer.len();
-
-                    param_indices.push(ParamIndices { start, eq_idx, end });
-                }
-            }
-        }
+        let param_indices =
+            push_params_to_buffer::<S, _, _, _>(&mut buffer, params)?;
 
         Ok(MediaType {
             inner: AnyMediaType {
@@ -517,7 +464,7 @@ mod test {
             ]);
             assert_eq!(
                 mt.unwrap().as_str_repr(),
-                "text/x.my; key*=utf8''va%00lue"
+                "text/x.my; key*=utf-8''va%00lue"
             )
         }
 
@@ -539,7 +486,7 @@ mod test {
             ]);
             assert_eq!(
                 mt.unwrap().as_str_repr(),
-                "text/x.my; foo*=utf8''b%00r"
+                "text/x.my; foo*=utf-8''b%00r"
             );
         }
     }

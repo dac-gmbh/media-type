@@ -52,6 +52,7 @@ mod value;
 pub mod spec;
 mod parse;
 mod media_type;
+mod gen;
 
 mod seal {
     // trick to make implementing traits in external crates impossible
