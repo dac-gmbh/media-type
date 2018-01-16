@@ -43,7 +43,7 @@ impl<'a> Value<'a> {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// let mime = r#"text/plain; param="abc def""#.parse::<mime::Mime>().unwrap();
     /// let param = mime.get_param("param").unwrap();
     /// assert_eq!(param.as_str_repr(), r#""abc def""#);
@@ -70,7 +70,7 @@ impl<'a> Value<'a> {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// use std::borrow::Cow;
     ///
     /// let raw_mime = r#"text/plain; p1="char is \""; p2="simple"; p3=simple2"#;
