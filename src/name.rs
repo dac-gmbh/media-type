@@ -28,6 +28,7 @@ def_static_names! {
     JAVASCRIPT = "javascript";
     PNG = "png";
     SVG_XML = "svg+xml";
+    OCTET_STREAM = "octet-stream";
     //TODO more of them
 }
 
