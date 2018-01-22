@@ -147,6 +147,10 @@ impl AnyMediaType {
         //Name::new_unchecked(&self.buffer[self.slash_idx+1..self.plus_idx])
     }
 
+    pub fn full_type(&self) -> Name {
+        Name::new_unchecked(&self.buffer[..self.end_of_type])
+    }
+
 //    pub fn suffix(&self) -> Option<Name> {
 //        let suffix_start = self.plus_idx+1;
 //        let end_idx = self.end_of_type;
