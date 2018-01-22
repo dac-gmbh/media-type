@@ -35,7 +35,23 @@ impl<S> MediaType<S>
         validate::<S>(input)
     }
 
-    pub fn from_parts<T, ST, PI, IN, IV>(
+    pub fn new<T, ST>(type_: T, subtype: ST) -> Result<Self, ParserError>
+        where T: AsRef<str>, ST: AsRef<str>
+    {
+        let (buffer, slash_idx, end_of_type) =
+            create_buffer_from::<S>(type_.as_ref(), subtype.as_ref())?;
+        Ok(MediaType {
+            inner: AnyMediaType {
+                buffer,
+                slash_idx,
+                end_of_type,
+                params: Vec::new()
+            },
+            _spec: PhantomData
+        })
+    }
+
+    pub fn new_with_params<T, ST, PI, IN, IV>(
         type_: T, subtype: ST, params: PI
     )-> Result<Self, ParserError>
         where T: AsRef<str>,
@@ -380,7 +396,38 @@ mod test {
         assert_eq!(mt1, mt2);
     }
 
-    mod from_parts {
+    mod new {
+        use super::super::MediaType;
+        use error::{ParserError, ParserErrorKind, ExpectedChar};
+        use spec::HttpSpec;
+
+        #[test]
+        fn validates_type() {
+            let mt = MediaType::<HttpSpec>::new("ba{d", "ok");
+            assert_eq!(mt, Err(ParserError::new("ba{d", ParserErrorKind::UnexpectedChar {
+                pos: 2,
+                expected: ExpectedChar::CharClass("token char")
+            })))
+        }
+
+        #[test]
+        fn validates_subtype() {
+            let mt = MediaType::<HttpSpec>::new("text", "n[k");
+            assert_eq!(mt, Err(ParserError::new("n[k", ParserErrorKind::UnexpectedChar {
+                pos: 1,
+                expected: ExpectedChar::CharClass("token char")
+            })));
+        }
+
+        #[test]
+        fn parses_typical_type() {
+            let mt = MediaType::<HttpSpec>::new("text", "x.example.imagination.rawtext+xml")
+                .unwrap();
+            assert_eq!(mt.as_str_repr(), "text/x.example.imagination.rawtext+xml")
+        }
+    }
+
+    mod new_with_params {
         use super::super::MediaType;
         use error::{ParserError, ParserErrorKind, ExpectedChar};
         use spec::{HttpSpec, MimeSpec, Ascii, Modern};
@@ -391,7 +438,7 @@ mod test {
 
         #[test]
         fn validates_type() {
-            let mt = MediaType::<HttpSpec>::from_parts("ba{d", "ok", empty());
+            let mt = MediaType::<HttpSpec>::new_with_params("ba{d", "ok", empty());
             assert_eq!(mt, Err(ParserError::new("ba{d", ParserErrorKind::UnexpectedChar {
                 pos: 2,
                 expected: ExpectedChar::CharClass("token char")
@@ -400,7 +447,7 @@ mod test {
 
         #[test]
         fn validates_subtype() {
-            let mt = MediaType::<HttpSpec>::from_parts("text", "n[k", empty());
+            let mt = MediaType::<HttpSpec>::new_with_params("text", "n[k", empty());
             assert_eq!(mt, Err(ParserError::new("n[k", ParserErrorKind::UnexpectedChar {
                 pos: 1,
                 expected: ExpectedChar::CharClass("token char")
@@ -409,7 +456,7 @@ mod test {
 
         #[test]
         fn validates_parameter_names() {
-            let mt = MediaType::<HttpSpec>::from_parts("text", "x.my", vec![
+            let mt = MediaType::<HttpSpec>::new_with_params("text", "x.my", vec![
                 ("good", "value"),
                 ("b[ad]", "key")
             ]);
@@ -422,13 +469,13 @@ mod test {
 
         #[test]
         fn simple_creation_works() {
-            let mt = MediaType::<HttpSpec>::from_parts("text", "plain", empty());
+            let mt = MediaType::<HttpSpec>::new_with_params("text", "plain", empty());
             assert_eq!(mt.unwrap().as_str_repr(), "text/plain")
         }
 
         #[test]
         fn creation_with_parameters_works() {
-            let mt = MediaType::<HttpSpec>::from_parts("text", "plain", vec![
+            let mt = MediaType::<HttpSpec>::new_with_params("text", "plain", vec![
                 ("charset", "utf-8")
             ]);
             assert_eq!(mt.unwrap().as_str_repr(), "text/plain; charset=utf-8");
@@ -436,7 +483,7 @@ mod test {
 
         #[test]
         fn use_quoting_if_needed() {
-            let mt = MediaType::<HttpSpec>::from_parts("text", "x.plain", vec![
+            let mt = MediaType::<HttpSpec>::new_with_params("text", "x.plain", vec![
                 ("charset", "utf-8"),
                 ("source", "dat file")
             ]);
@@ -448,7 +495,7 @@ mod test {
 
         #[test]
         fn use_quoted_pair_if_needed() {
-            let mt = MediaType::<HttpSpec>::from_parts("text", "x.mage", vec![
+            let mt = MediaType::<HttpSpec>::new_with_params("text", "x.mage", vec![
                 ("comment", "it\"has")
             ]);
             assert_eq!(
@@ -459,7 +506,7 @@ mod test {
 
         #[test]
         fn use_perc_encode_for_values_if_needed() {
-            let mt = MediaType::<HttpSpec>::from_parts("text", "x.my", vec![
+            let mt = MediaType::<HttpSpec>::new_with_params("text", "x.my", vec![
                 ("key", "va\0lue")
             ]);
             assert_eq!(
@@ -470,7 +517,7 @@ mod test {
 
         #[test]
         fn in_mime_obs_0_is_quoted() {
-            let mt = MediaType::<MimeSpec>::from_parts("text", "x.my", vec![
+            let mt = MediaType::<MimeSpec>::new_with_params("text", "x.my", vec![
                 ("foo", "b\0r")
             ]);
             assert_eq!(
@@ -481,7 +528,7 @@ mod test {
 
         #[test]
         fn in_mime_modern_0_is_pencoded() {
-            let mt = MediaType::<MimeSpec<Ascii, Modern>>::from_parts("text", "x.my", vec![
+            let mt = MediaType::<MimeSpec<Ascii, Modern>>::new_with_params("text", "x.my", vec![
                 ("foo", "b\0r")
             ]);
             assert_eq!(
