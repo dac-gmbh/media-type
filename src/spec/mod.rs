@@ -1,5 +1,6 @@
 use std::marker::PhantomData;
 use std::fmt::Debug;
+use std::default::Default;
 
 use error::{ParserErrorRef, ParserErrorKind, ExpectedChar};
 use seal::Seal;
@@ -54,7 +55,7 @@ pub trait Spec: Seal + GeneralQSSpec {
 pub trait ObsNormalSwitch: Seal+Copy+Clone+Debug {}
 pub trait InternationalizedSwitch: Seal+Copy+Clone+Debug {}
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct MimeSpec<
     TP: InternationalizedSwitch = Internationalized,
     O: ObsNormalSwitch = Obs
@@ -62,14 +63,14 @@ pub struct MimeSpec<
 
 impl<T: InternationalizedSwitch, O: ObsNormalSwitch> Seal for MimeSpec<T, O> {}
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct HttpSpec<
     O: ObsNormalSwitch = Obs
 >(PhantomData<O>);
 
 impl<O: ObsNormalSwitch> Seal for HttpSpec<O> {}
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct StrictSpec;
 impl Seal for StrictSpec {}
 
@@ -78,30 +79,61 @@ impl Seal for StrictSpec {}
 /// Because the AnySpec is meant to be able to parse mimes from "any" spec it has to be able
 /// to handle all the thinks from MIME like soft-line brakes and comments in the mime type,
 /// which makes it _slower_ then e.g. HttpSpec
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct AnySpec;
 impl Seal for AnySpec {}
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct Obs;
 impl Seal for Obs {}
 impl ObsNormalSwitch for Obs {}
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct Modern;
 impl Seal for Modern {}
 impl ObsNormalSwitch for Modern {}
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct Ascii;
 impl Seal for Ascii {}
 impl InternationalizedSwitch for Ascii {}
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct Internationalized;
 impl Seal for Internationalized {}
 impl InternationalizedSwitch for Internationalized {}
 
+macro_rules! zs_conversions {
+    ($($tp:ty => $tp2:ty;)*) => ($(
+        impl From<$tp> for $tp2 {
+            fn from(_: $tp) -> $tp2 {
+                Default::default()
+            }
+        }
+    )*);
+}
+
+zs_conversions! {
+    MimeSpec<Ascii, Obs> => MimeSpec<Internationalized, Obs>;
+    MimeSpec<Ascii, Modern> => MimeSpec<Internationalized, Modern>;
+    MimeSpec<Ascii, Modern> => MimeSpec<Ascii, Obs>;
+    MimeSpec<Ascii, Modern> => MimeSpec<Internationalized, Obs>;
+    MimeSpec<Internationalized, Modern> => MimeSpec<Internationalized, Obs>;
+    HttpSpec<Modern> => HttpSpec<Obs>;
+    StrictSpec => HttpSpec<Modern>;
+    StrictSpec => HttpSpec<Obs>;
+    StrictSpec => MimeSpec<Ascii, Obs>;
+    StrictSpec => MimeSpec<Ascii, Modern>;
+    StrictSpec => MimeSpec<Internationalized, Obs>;
+    StrictSpec => MimeSpec<Internationalized, Modern>;
+    StrictSpec => AnySpec;
+    HttpSpec<Modern> => AnySpec;
+    HttpSpec<Obs> => AnySpec;
+    MimeSpec<Ascii, Obs> => AnySpec;
+    MimeSpec<Ascii, Modern> => AnySpec;
+    MimeSpec<Internationalized, Obs> => AnySpec;
+    MimeSpec<Internationalized, Modern> => AnySpec;
+}
 
 // It would be nicer to have it in parse but it's needed for the default impl
 // and placing it in parse would lead to a circular dependency

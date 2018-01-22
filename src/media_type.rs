@@ -79,6 +79,50 @@ impl<S> MediaType<S>
     }
 }
 
+
+macro_rules! conversions {
+    ($($tp:ty => $tp2:ty;)*) => (
+        mod conversion_impl_ns { $(
+            #[allow(unused_imports)]
+            use spec::*;
+
+            impl From<$crate::MediaType<$tp>> for $crate::MediaType<$tp2> {
+                fn from(media_type: $crate::MediaType<$tp>) -> $crate::MediaType<$tp2> {
+                    $crate::MediaType {
+                        inner: media_type.inner,
+                        _spec: ::std::marker::PhantomData
+                    }
+                }
+            }
+        )* }
+    );
+}
+
+//FUTURE_TODO: once specialization lands and is aviable for From imple
+// From<MediaType<S>> for MediaType<S2> where S2: From<S>, currently this
+// won't work due to conflicting implementations
+conversions! {
+    MimeSpec<Ascii, Obs> => MimeSpec<Internationalized, Obs>;
+    MimeSpec<Ascii, Modern> => MimeSpec<Ascii, Obs>;
+    MimeSpec<Ascii, Modern> => MimeSpec<Internationalized, Obs>;
+    MimeSpec<Ascii, Modern> => MimeSpec<Internationalized, Modern>;
+    MimeSpec<Internationalized, Modern> => MimeSpec<Internationalized, Obs>;
+    HttpSpec<Modern> => HttpSpec<Obs>;
+    StrictSpec => HttpSpec<Modern>;
+    StrictSpec => HttpSpec<Obs>;
+    StrictSpec => MimeSpec<Ascii, Obs>;
+    StrictSpec => MimeSpec<Ascii, Modern>;
+    StrictSpec => MimeSpec<Internationalized, Obs>;
+    StrictSpec => MimeSpec<Internationalized, Modern>;
+    StrictSpec => AnySpec;
+    HttpSpec<Modern> => AnySpec;
+    HttpSpec<Obs> => AnySpec;
+    MimeSpec<Ascii, Obs> => AnySpec;
+    MimeSpec<Ascii, Modern> => AnySpec;
+    MimeSpec<Internationalized, Obs> => AnySpec;
+    MimeSpec<Internationalized, Modern> => AnySpec;
+}
+
 impl<S1, S2> PartialEq<MediaType<S2>> for MediaType<S1>
     where S1: Spec, S2: Spec
 {
@@ -541,4 +585,67 @@ mod test {
             );
         }
     }
+
+    #[test]
+    fn media_type_conversion_mime() {
+        use spec::*;
+        let top = MediaType::<StrictSpec>::parse("text/plain").unwrap();
+
+        let m_mam: MediaType<MimeSpec<Ascii, Modern>> = top.clone().into();
+        assert_eq!(m_mam.as_str_repr(), "text/plain");
+        let m_mao: MediaType<MimeSpec<Ascii, Obs>> = top.clone().into();
+        assert_eq!(m_mao.as_str_repr(), "text/plain");
+        let m_mim: MediaType<MimeSpec<Internationalized, Modern>> = m_mam.clone().into();
+        assert_eq!(m_mim.as_str_repr(), "text/plain");
+        let m_mio1: MediaType<MimeSpec<Internationalized, Obs>> = m_mao.clone().into();
+        assert_eq!(m_mio1.as_str_repr(), "text/plain");
+        let m_mio2: MediaType<MimeSpec<Internationalized, Obs>> = m_mim.clone().into();
+        assert_eq!(m_mio2.as_str_repr(), "text/plain");
+        let m_mio3: MediaType<MimeSpec<Internationalized, Obs>> = m_mam.clone().into();
+        assert_eq!(m_mio3.as_str_repr(), "text/plain");
+
+        let m_mim2: MediaType<MimeSpec<Internationalized, Modern>> = top.clone().into();
+        assert_eq!(m_mam.as_str_repr(), "text/plain");
+        let m_mio4: MediaType<MimeSpec<Internationalized, Obs>> = top.clone().into();
+        assert_eq!(m_mao.as_str_repr(), "text/plain");
+
+        let m_as: &[MediaType<AnySpec>] = &[
+            m_mam.into(),
+            m_mao.into(),
+            m_mim.into(),
+            m_mim2.into(),
+            m_mio1.into(),
+            m_mio2.into(),
+            m_mio3.into(),
+            m_mio4.into()
+        ];
+        for m_a in m_as.iter() {
+            assert_eq!(m_a.as_str_repr(), "text/plain");
+        }
+
+    }
+
+    #[test]
+    fn media_type_conversion_http() {
+        use spec::*;
+        let top = MediaType::<StrictSpec>::parse("text/plain").unwrap();
+
+        let m_o: MediaType<HttpSpec<Obs>> = top.clone().into();
+        assert_eq!(m_o.as_str_repr(), "text/plain");
+        let m_m: MediaType<HttpSpec<Modern>> = top.clone().into();
+        assert_eq!(m_m.as_str_repr(), "text/plain");
+        let m_o2: MediaType<HttpSpec<Obs>> = m_m.clone().into();
+        assert_eq!(m_o2.as_str_repr(), "text/plain");
+
+        let m_as: &[MediaType<AnySpec>] = &[
+            m_m.into(),
+            m_o.into(),
+            m_o2.into()
+        ];
+        for m_a in m_as.iter() {
+            assert_eq!(m_a.as_str_repr(), "text/plain");
+        }
+
+    }
+
 }
