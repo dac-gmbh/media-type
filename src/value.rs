@@ -180,13 +180,6 @@ impl<'a> fmt::Debug for Value<'a> {
     }
 }
 
-impl<'a> fmt::Display for Value<'a> {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Display::fmt(self.source, f)
-    }
-}
-
 
 impl<'a, 'b> AsciiCaseInsensitiveEq<Value<'b>> for Value<'a> {
     fn eq_ignore_ascii_case(&self, other: &Value<'b>) -> bool {
