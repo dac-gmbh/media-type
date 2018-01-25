@@ -3,7 +3,7 @@ use std::iter::{Iterator, ExactSizeIterator};
 use std::slice;
 use std::marker::PhantomData;
 use std::ops::Deref;
-use std::fmt::{self, Debug};
+use std::fmt::{self, Debug, Display};
 
 use error::{ParserError, ParserErrorRef};
 use name::{Name, CHARSET};
@@ -142,15 +142,6 @@ impl<S> Deref for MediaType<S>
     }
 }
 
-impl<S> fmt::Display for MediaType<S>
-    where S: Spec
-{
-
-    fn fmt(&self, fter: &mut fmt::Formatter) -> fmt::Result {
-        write!(fter, "{}", self.as_str_repr())
-    }
-}
-
 impl<S> Into<AnyMediaType> for MediaType<S>
     where S: Spec
 {
@@ -159,6 +150,13 @@ impl<S> Into<AnyMediaType> for MediaType<S>
     }
 }
 
+impl<S> Display for MediaType<S>
+    where S: Spec
+{
+    fn fmt(&self, fter: &mut fmt::Formatter) -> fmt::Result {
+        fter.write_str(self.as_str_repr())
+    }
+}
 
 
 #[derive(Clone,  Debug)]
@@ -235,12 +233,6 @@ impl AnyMediaType {
 
 }
 
-impl fmt::Display for AnyMediaType {
-
-    fn fmt(&self, fter: &mut fmt::Formatter) -> fmt::Result {
-        write!(fter, "{}", self.as_str_repr())
-    }
-}
 
 impl PartialEq for AnyMediaType {
     fn eq(&self, other: &AnyMediaType) -> bool {
@@ -263,7 +255,6 @@ impl PartialEq for AnyMediaType {
                     let (other_name, other_value) = other.params().next().unwrap();
                     return name == other_name && value == other_value
                 },
-                //FIXME check to which number it makes sense 2?/3?
                 2 => {
                     let mut params = self.params();
                     let mut other_params = other.params();
@@ -324,6 +315,11 @@ impl<'a> From<ParseResult<'a>> for AnyMediaType {
     }
 }
 
+impl Display for AnyMediaType {
+    fn fmt(&self, fter: &mut fmt::Formatter) -> fmt::Result {
+        fter.write_str(self.as_str_repr())
+    }
+}
 
 
 
