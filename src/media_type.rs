@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::iter::{Iterator, ExactSizeIterator};
 use std::slice;
 use std::marker::PhantomData;
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 use std::fmt::{self, Debug, Display};
 
 use error::{Error, ParserErrorRef};
@@ -139,6 +139,14 @@ impl<S> Deref for MediaType<S>
 
     fn deref(&self) -> &Self::Target {
         &self.inner
+    }
+}
+
+impl<S> DerefMut for MediaType<S>
+    where S: Spec
+{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
     }
 }
 
