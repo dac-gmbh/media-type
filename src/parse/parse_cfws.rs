@@ -1,4 +1,4 @@
-use error::{ParserErrorKind, ParserErrorRef, ExpectedChar};
+use error::{ErrorKind, ParserErrorRef, ExpectedChar};
 
 
 use lut::Table;
@@ -102,7 +102,7 @@ fn inner_parse_comment<E>(input: &str, offset: usize) -> Result<usize, ParserErr
                 },
                 b'\r' | b'\n'  => {
                     return Err(
-                        ParserErrorKind::IllegalCrNlSeq { pos: offset - 1 }
+                        ErrorKind::IllegalCrNlSeq { pos: offset - 1 }
                         .with_input(input)
                     );
                 }
@@ -111,7 +111,7 @@ fn inner_parse_comment<E>(input: &str, offset: usize) -> Result<usize, ParserErr
                         if E::ALLOW_UTF8 { "ctext / non-ascii-utf8 / '(' / ')' / '\\'" }
                         else { "ctext / '(' / ')' / '\\'" };
 
-                    return Err(ParserErrorKind::UnexpectedChar {
+                    return Err(ErrorKind::UnexpectedChar {
                         //remember offset already points to the next char
                         pos: offset - 1,
                         expected: ExpectedChar::CharClass(charclass)
@@ -119,7 +119,7 @@ fn inner_parse_comment<E>(input: &str, offset: usize) -> Result<usize, ParserErr
                 }
             }
         } else {
-            return Err(ParserErrorKind::UnexpectedEof.with_input(input));
+            return Err(ErrorKind::UnexpectedEof.with_input(input));
         }
     }
 }
@@ -137,13 +137,13 @@ fn parse_quotable<E: MimeParsingExt>(input: &str, offset: usize) -> Result<usize
         } else {
             let charclass = if E::OBS { "quotable/obs-quotabe" } else { "quotable" };
             Err(
-                ParserErrorKind::UnexpectedChar {
+                ErrorKind::UnexpectedChar {
                     pos: offset, expected: ExpectedChar::CharClass(charclass)
                 }.with_input(input)
             )
         }
     } else {
-        Err(ParserErrorKind::UnexpectedEof.with_input(input))
+        Err(ErrorKind::UnexpectedEof.with_input(input))
     }
 }
 
@@ -166,7 +166,7 @@ pub fn parse_opt_crlf_seq(input: &str, offset: usize) -> Result<usize, ParserErr
                return Ok(offset + 3)
             }
         }
-        Err(ParserErrorKind::IllegalCrNlSeq { pos: offset }.with_input(input))
+        Err(ErrorKind::IllegalCrNlSeq { pos: offset }.with_input(input))
     }
 }
 
@@ -258,7 +258,7 @@ mod test {
             let text = "(= (+ \n (* 2 3) 4) 10)";
             let res = opt_parse_comment::<MimeObsParsing>(text);
             assert_eq!(res, Err(
-                ParserErrorKind::IllegalCrNlSeq { pos: 6 }
+                ErrorKind::IllegalCrNlSeq { pos: 6 }
                     .with_input("(= (+ \n (* 2 3) 4) 10)")
             ));
         }
@@ -268,7 +268,7 @@ mod test {
             let text = "(= (+ \n (* 2 3) 4) 10)";
             let res = opt_parse_comment::<MimeParsing>(text);
             assert_eq!(res, Err(
-                ParserErrorKind::IllegalCrNlSeq { pos: 6 }
+                ErrorKind::IllegalCrNlSeq { pos: 6 }
                     .with_input("(= (+ \n (* 2 3) 4) 10)")
             ));
         }
@@ -277,7 +277,7 @@ mod test {
         fn with_bad_fws_twice_in_row() {
             let res = opt_parse_comment::<MimeParsing>("(= (+ \r\n \r\n  (* 2 3) 4) 10)");
             assert_eq!(res, Err(
-                ParserErrorKind::IllegalCrNlSeq { pos: 9 }
+                ErrorKind::IllegalCrNlSeq { pos: 9 }
                     .with_input("(= (+ \r\n \r\n  (* 2 3) 4) 10)")
             ));
         }

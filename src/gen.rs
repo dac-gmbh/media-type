@@ -3,7 +3,7 @@ use percent_encoding::percent_encode;
 
 use parse::ParamIndices;
 use spec::Spec;
-use error::ParserError;
+use error::Error;
 
 const PARAM_SEP: &str = "; ";
 const PARAM_KV_SEP: char = '=';
@@ -19,7 +19,7 @@ const PARAM_ENC_VALUE_PREFIX: &str = "utf-8''";
 
 pub(crate) fn create_buffer_from<S>(
     type_: &str, subtype: &str
-) -> Result<(String, usize, usize), ParserError>
+) -> Result<(String, usize, usize), Error>
     where S: Spec
 {
     S::validate_token(type_)?;
@@ -49,7 +49,7 @@ pub(crate) fn create_buffer_from<S>(
 /// Spec `S`.
 ///
 pub fn push_params_to_buffer<S, I, IN, IV>(buffer: &mut String, params: I)
-    -> Result<Vec<ParamIndices>, ParserError>
+    -> Result<Vec<ParamIndices>, Error>
     where S: Spec,
           I: IntoIterator<Item=(IN,IV)>,
           IN: AsRef<str>,

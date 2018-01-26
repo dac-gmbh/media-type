@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 use std::ops::Deref;
 use std::fmt::{self, Debug, Display};
 
-use error::{ParserError, ParserErrorRef};
+use error::{Error, ParserErrorRef};
 use name::{Name, CHARSET, MULTIPART};
 use value::{Value, UTF_8, UTF8};
 use gen::{
@@ -35,7 +35,7 @@ impl<S> MediaType<S>
         validate::<S>(input)
     }
 
-    pub fn new<T, ST>(type_: T, subtype: ST) -> Result<Self, ParserError>
+    pub fn new<T, ST>(type_: T, subtype: ST) -> Result<Self, Error>
         where T: AsRef<str>, ST: AsRef<str>
     {
         let (buffer, slash_idx, end_of_type) =
@@ -53,7 +53,7 @@ impl<S> MediaType<S>
 
     pub fn new_with_params<T, ST, PI, IN, IV>(
         type_: T, subtype: ST, params: PI
-    )-> Result<Self, ParserError>
+    )-> Result<Self, Error>
         where T: AsRef<str>,
               ST: AsRef<str>,
               PI: IntoIterator<Item=(IN, IV)>,
@@ -447,7 +447,7 @@ mod test {
 
     mod new {
         use super::super::MediaType;
-        use error::{ParserError, ParserErrorKind, ExpectedChar};
+        use error::{Error, ErrorKind, ExpectedChar};
         use spec::HttpSpec;
 
         #[test]
@@ -460,7 +460,7 @@ mod test {
         #[test]
         fn validates_type() {
             let mt = MediaType::<HttpSpec>::new("ba{d", "ok");
-            assert_eq!(mt, Err(ParserError::new("ba{d", ParserErrorKind::UnexpectedChar {
+            assert_eq!(mt, Err(Error::new("ba{d", ErrorKind::UnexpectedChar {
                 pos: 2,
                 expected: ExpectedChar::CharClass("token char")
             })))
@@ -469,7 +469,7 @@ mod test {
         #[test]
         fn validates_subtype() {
             let mt = MediaType::<HttpSpec>::new("text", "n[k");
-            assert_eq!(mt, Err(ParserError::new("n[k", ParserErrorKind::UnexpectedChar {
+            assert_eq!(mt, Err(Error::new("n[k", ErrorKind::UnexpectedChar {
                 pos: 1,
                 expected: ExpectedChar::CharClass("token char")
             })));
@@ -485,7 +485,7 @@ mod test {
 
     mod new_with_params {
         use super::super::MediaType;
-        use error::{ParserError, ParserErrorKind, ExpectedChar};
+        use error::{Error, ErrorKind, ExpectedChar};
         use spec::{HttpSpec, MimeSpec, Ascii, Modern};
 
         fn empty() -> Vec<(&'static str, &'static str)> {
@@ -495,7 +495,7 @@ mod test {
         #[test]
         fn validates_type() {
             let mt = MediaType::<HttpSpec>::new_with_params("ba{d", "ok", empty());
-            assert_eq!(mt, Err(ParserError::new("ba{d", ParserErrorKind::UnexpectedChar {
+            assert_eq!(mt, Err(Error::new("ba{d", ErrorKind::UnexpectedChar {
                 pos: 2,
                 expected: ExpectedChar::CharClass("token char")
             })))
@@ -504,7 +504,7 @@ mod test {
         #[test]
         fn validates_subtype() {
             let mt = MediaType::<HttpSpec>::new_with_params("text", "n[k", empty());
-            assert_eq!(mt, Err(ParserError::new("n[k", ParserErrorKind::UnexpectedChar {
+            assert_eq!(mt, Err(Error::new("n[k", ErrorKind::UnexpectedChar {
                 pos: 1,
                 expected: ExpectedChar::CharClass("token char")
             })));
@@ -516,7 +516,7 @@ mod test {
                 ("good", "value"),
                 ("b[ad]", "key")
             ]);
-            assert_eq!(mt, Err(ParserError::new("b[ad]", ParserErrorKind::UnexpectedChar {
+            assert_eq!(mt, Err(Error::new("b[ad]", ErrorKind::UnexpectedChar {
                 pos: 1,
                 expected: ExpectedChar::CharClass("token char")
             })))

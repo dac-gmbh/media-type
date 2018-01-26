@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 use std::fmt::Debug;
 use std::default::Default;
 
-use error::{ParserErrorRef, ParserErrorKind, ExpectedChar};
+use error::{ParserErrorRef, ErrorKind, ExpectedChar};
 use seal::Seal;
 
 use percent_encoding::EncodeSet;
@@ -26,7 +26,7 @@ pub trait Spec: Seal + GeneralQSSpec {
         if end == input.len() {
             Ok(())
         } else {
-            Err(ParserErrorKind::UnexpectedChar {
+            Err(ErrorKind::UnexpectedChar {
                 pos: end,
                 expected: ExpectedChar::CharClass("token char")
             }.with_input(input))
@@ -44,7 +44,7 @@ pub trait Spec: Seal + GeneralQSSpec {
             //we just want the offset
             Ok(pres) => Ok(pres.quoted_string.len()),
             Err((pos, cause)) => {
-                Err(ParserErrorKind::QuotedParamValue { pos, cause }.with_input(input))
+                Err(ErrorKind::QuotedParamValue { pos, cause }.with_input(input))
             }
         }
 
@@ -149,14 +149,14 @@ pub(crate) fn parse_unquoted_value<V>(input: &str, mut validator: V) -> Result<u
     }
     let pos = end_idx.unwrap_or(input.len());
     if pos == 0 {
-        return Err(ParserErrorKind::UnquotedParamValue {
+        return Err(ErrorKind::UnquotedParamValue {
             pos, cause: CoreError::ZeroSizedValue
         }.with_input(input));
     }
     if validator.end() {
         Ok(pos)
     } else {
-        return Err(ParserErrorKind::UnquotedParamValue {
+        return Err(ErrorKind::UnquotedParamValue {
             pos, cause: CoreError::InvalidChar
         }.with_input(input));
     }

@@ -21,7 +21,7 @@ impl Display for ExpectedChar {
 
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub enum ParserErrorKind {
+pub enum ErrorKind {
 
     QuotedParamValue {
         pos: usize,
@@ -45,14 +45,14 @@ pub enum ParserErrorKind {
     }
 }
 
-impl ParserErrorKind {
+impl ErrorKind {
 
     pub fn with_input(self, input: &str) -> ParserErrorRef {
         ParserErrorRef::new(input, self)
     }
 
     fn description(&self) -> &str {
-        use self::ParserErrorKind::*;
+        use self::ErrorKind::*;
         match *self {
             QuotedParamValue {..} => "parsing quoted parameter value failed",
             UnquotedParamValue {..} => "parsing unquoted parameter value failed",
@@ -63,7 +63,7 @@ impl ParserErrorKind {
     }
 
     fn cause(&self) -> Option<&StdError> {
-        use self::ParserErrorKind::*;
+        use self::ErrorKind::*;
         match self {
             &QuotedParamValue { ref cause, ..} => Some(cause as &StdError),
             &UnquotedParamValue { ref cause, ..} => Some(cause as &StdError),
@@ -72,7 +72,7 @@ impl ParserErrorKind {
     }
 
     fn display(&self, input: &str, fter: &mut fmt::Formatter) -> fmt::Result {
-        use self::ParserErrorKind::*;
+        use self::ErrorKind::*;
         match *self {
             QuotedParamValue { pos, cause } => {
                 write!(
@@ -109,12 +109,12 @@ impl ParserErrorKind {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ParserErrorRef<'a> {
     input: &'a str,
-    kind: ParserErrorKind
+    kind: ErrorKind
 }
 
 impl<'a> ParserErrorRef<'a> {
 
-    pub fn new(input: &'a str, kind: ParserErrorKind) -> Self {
+    pub fn new(input: &'a str, kind: ErrorKind) -> Self {
         ParserErrorRef { input, kind }
     }
 
@@ -122,12 +122,12 @@ impl<'a> ParserErrorRef<'a> {
         self.input
     }
 
-    pub fn kind(&self) -> ParserErrorKind {
+    pub fn kind(&self) -> ErrorKind {
         self.kind
     }
 
-    pub fn to_owned(&self) -> ParserError {
-        ParserError::new(self.input, self.kind)
+    pub fn to_owned(&self) -> Error {
+        Error::new(self.input, self.kind)
     }
 }
 
@@ -149,29 +149,29 @@ impl<'a> StdError for ParserErrorRef<'a> {
     }
 }
 
-impl<'a> From<ParserErrorRef<'a>> for ParserError {
+impl<'a> From<ParserErrorRef<'a>> for Error {
     fn from(pref: ParserErrorRef<'a>) -> Self {
         pref.to_owned()
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct ParserError {
+pub struct Error {
     input: String,
-    kind: ParserErrorKind
+    kind: ErrorKind
 }
 
-impl ParserError {
+impl Error {
 
-    pub fn new<I: Into<String>>(input: I, kind: ParserErrorKind) -> Self {
-        ParserError { input: input.into(), kind }
+    pub fn new<I: Into<String>>(input: I, kind: ErrorKind) -> Self {
+        Error { input: input.into(), kind }
     }
 
     pub fn input(&self) -> &str {
         self.input.as_ref()
     }
 
-    pub fn kind(&self) -> ParserErrorKind {
+    pub fn kind(&self) -> ErrorKind {
         self.kind
     }
 
@@ -185,13 +185,13 @@ impl ParserError {
     }
 }
 
-impl Display for ParserError {
+impl Display for Error {
     fn fmt(&self, fter: &mut fmt::Formatter) -> fmt::Result {
         self.kind.display(self.input.as_ref(), fter)
     }
 }
 
-impl StdError for ParserError {
+impl StdError for Error {
     fn description(&self) -> &str {
         self.kind.description()
     }
