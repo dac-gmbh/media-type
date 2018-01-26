@@ -29,6 +29,9 @@ def_static_names! {
     PNG = "png";
     SVG_XML = "svg+xml";
     OCTET_STREAM = "octet-stream";
+    RELATED = "related";
+    MIXED = "mixed";
+    ALTERNATIVE = "alternative";
     //TODO more of them
 }
 
