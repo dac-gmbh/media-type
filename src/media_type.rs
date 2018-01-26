@@ -6,7 +6,7 @@ use std::ops::Deref;
 use std::fmt::{self, Debug, Display};
 
 use error::{ParserError, ParserErrorRef};
-use name::{Name, CHARSET};
+use name::{Name, CHARSET, MULTIPART};
 use value::{Value, UTF_8, UTF8};
 use gen::{
     create_buffer_from,
@@ -231,6 +231,10 @@ impl AnyMediaType {
             .unwrap_or(false)
     }
 
+    pub fn is_multipart(&self) -> bool {
+        self.type_() == MULTIPART
+    }
+
 }
 
 
@@ -374,7 +378,8 @@ impl<'a> Debug for Params<'a> {
 #[cfg(test)]
 mod test {
     use super::{AnyMediaType, MediaType};
-    use ::parse::{AnySpec, StrictSpec};
+    use parse::{AnySpec, StrictSpec};
+    use spec::*;
 
     #[test]
     fn simple_parse() {
@@ -444,6 +449,13 @@ mod test {
         use super::super::MediaType;
         use error::{ParserError, ParserErrorKind, ExpectedChar};
         use spec::HttpSpec;
+
+        #[test]
+        fn accepts_name_struct() {
+            use name::{TEXT, PLAIN};
+            let mt = MediaType::<HttpSpec>::new(TEXT, PLAIN).unwrap();
+            assert_eq!(mt.as_str_repr(), "text/plain");
+        }
 
         #[test]
         fn validates_type() {
@@ -584,7 +596,6 @@ mod test {
 
     #[test]
     fn media_type_conversion_mime() {
-        use spec::*;
         let top = MediaType::<StrictSpec>::parse("text/plain").unwrap();
 
         let m_mam: MediaType<MimeSpec<Ascii, Modern>> = top.clone().into();
@@ -623,7 +634,6 @@ mod test {
 
     #[test]
     fn media_type_conversion_http() {
-        use spec::*;
         let top = MediaType::<StrictSpec>::parse("text/plain").unwrap();
 
         let m_o: MediaType<HttpSpec<Obs>> = top.clone().into();
@@ -644,4 +654,11 @@ mod test {
 
     }
 
+    #[test]
+    fn is_multipart() {
+        let mt = MediaType::<HttpSpec>::new("multipart", "mixed").unwrap();
+        assert_eq!(mt.is_multipart(), true);
+        let mt = MediaType::<HttpSpec>::new("application", "text").unwrap();
+        assert_eq!(mt.is_multipart(), false);
+    }
 }
