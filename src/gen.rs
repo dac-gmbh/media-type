@@ -36,7 +36,7 @@ pub(crate) fn create_buffer_from<S>(
     Ok((buffer, slash_idx, end_of_type))
 }
 
-/// Pushs the parameters formatted to the output buffer
+/// Push all parameters formatted to the output buffer
 ///
 /// each parameter is preceded by "; " followed by <name> then "=",
 /// then <value>. If the value needed to be quoted it will be quoted,
@@ -60,26 +60,45 @@ pub fn push_params_to_buffer<S, I, IN, IV>(buffer: &mut String, params: I)
     for (name, value) in params.into_iter() {
         let name = <IN as AsRef<str>>::as_ref(&name);
         let value = <IV as AsRef<str>>::as_ref(&value);
-        S::validate_token(name)?;
-        //TODO percent encode+split if value > threshold && it's MIME spec
-        match quote_if_needed::<S, _>(value.as_ref(), &mut S::UnquotedValue::default()) {
-            Ok(quoted_if_needed) => {
-                //TODO if > threashold fall back to encodinf
-                let value = quoted_if_needed.as_ref();
-                let indices = buffer_push_param(buffer, name, value);
-                param_indices.push(indices);
-            },
-            Err(_err) => {
-                let indices = buffer_encode_and_push_param::<S>(buffer, name, value);
-                param_indices.push(indices);
-            }
-        }
+        let indices = push_param_to_buffer::<S>(buffer, name, value)?;
+        param_indices.push(indices);
     }
 
     Ok(param_indices)
 }
 
-fn buffer_push_param(buffer: &mut String, name: &str, value: &str) -> ParamIndices {
+/// Push one parameter formatted to the output buffer
+///
+/// the parameter is preceded by "; " followed by <name> then "=",
+/// then <value>. If the value needed to be quoted it will be quoted,
+/// if the value needs to be encoded it's encoded (and "*" is added to the
+/// parameter name.
+///
+/// # Error
+///
+/// an error is returned if the parameter name is not valid for the given
+/// Spec `S`.
+///
+pub fn push_param_to_buffer<S>(buffer: &mut String, name: &str, value: &str)
+                                           -> Result<ParamIndices, Error>
+    where S: Spec
+{
+    S::validate_token(name)?;
+    //TODO percent encode+split if value > threshold && it's MIME spec
+    //TODO important aboves TODO might change this TODO's interface
+    Ok(match quote_if_needed::<S, _>(value, &mut S::UnquotedValue::default()) {
+        Ok(quoted_if_needed) => {
+            //TODO if > threashold fall back to encodinf
+            let value = quoted_if_needed.as_ref();
+            _buffer_push_param(buffer, name, value)
+        },
+        Err(_err) => {
+            _buffer_encode_and_push_param::<S>(buffer, name, value)
+        }
+    })
+}
+
+fn _buffer_push_param(buffer: &mut String, name: &str, value: &str) -> ParamIndices {
     buffer.push_str(PARAM_SEP);
     let start = buffer.len();
 
@@ -93,7 +112,7 @@ fn buffer_push_param(buffer: &mut String, name: &str, value: &str) -> ParamIndic
     ParamIndices { start, eq_idx, end }
 }
 
-fn buffer_encode_and_push_param<S: Spec>(
+fn _buffer_encode_and_push_param<S: Spec>(
     buffer: &mut String, name: &str, value: &str
 ) -> ParamIndices
 {

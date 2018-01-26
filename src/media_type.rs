@@ -10,7 +10,8 @@ use name::{Name, CHARSET, MULTIPART};
 use value::{Value, UTF_8, UTF8};
 use gen::{
     create_buffer_from,
-    push_params_to_buffer
+    push_params_to_buffer,
+    push_param_to_buffer
 };
 
 use parse::{Spec, ParseResult, ParamIndices, parse, validate};
@@ -76,6 +77,77 @@ impl<S> MediaType<S>
             _spec: PhantomData
         })
 
+    }
+
+    /// removes the first param equal to `name`, returns true if a parameter was returned
+    ///
+    /// If PartialEq is implemented as excepted at only up to one parameter names can match
+    /// the given name, through even if more would match the function removes the first match
+    /// and returns.
+    ///
+    /// If no parameter matches `name` nothing is changed and `false` is returned.
+    pub fn remove_param<N>(&mut self, name: N) -> bool
+        where N: for<'a> PartialEq<Name<'a>>
+    {
+        let mut found = None;
+        let mut previous_end = self.end_of_type;
+        for (idx, indices) in self.params.iter().enumerate() {
+            if name == Name::new_unchecked(&self.buffer[indices.start..indices.eq_idx]) {
+                // indices.start is > previous_end, previous_end is before the
+                // ; of the next param, indices.start is after, as we want to
+                // remove everything accosiated with the param we use previous_end
+                found = Some((idx, previous_end, indices.end));
+                break;
+            } else {
+                previous_end = indices.end;
+            }
+        }
+
+        if let Some((idx, start, end)) = found {
+            let size_diff = end - start;
+            let mut tail = self.buffer[end..].to_owned();
+            self.buffer.truncate(start);
+            self.buffer.push_str(&*tail);
+            self.params.remove(idx);
+            // idx now points on the first element which needs fixing or the end of the array
+            for old_indices in self.params[idx..].iter_mut() {
+                old_indices.start -= size_diff;
+                old_indices.eq_idx -= size_diff;
+                old_indices.end -= size_diff;
+            }
+            true
+        } else {
+            false
+        }
+    }
+
+    //TODO handle encodeing (parameters ending in *)
+    /// set a given parameter to a give value, overriding the old parameter
+    ///
+    /// If there already exists a parameter with the same name the
+    /// parameter is overridden.
+    ///
+    /// If there the parameter is not part of the media type it is added.
+    ///
+    /// Note that parameters are order-independent given rfc2045, as such
+    /// the order parameters will have after this function was used is
+    /// implementation dependent and can change. Mainly this means that
+    /// this function _could_ replace the parameter in place or _could_
+    /// remove it and add the new parameter the end or insert it in the
+    /// beginning.
+    pub fn set_param<N, V>(&mut self, name: N, value: V)
+        where N: AsRef<str>, V: AsRef<str>
+    {
+        //OPTIMIZE this can be done MUCH more efficient with unsafe writes,
+        // e.g. replace_slice(&mut String, Slice, String) or
+        //   overwrite_slice(&mut String, Slice, W) where FnOnce(&mut Writer) or so
+        let name = name.as_ref();
+        let value = value.as_ref();
+        self.remove_param(name);
+        let indices =
+            push_param_to_buffer::<S>(&mut self.buffer, name, value)
+                .expect("[BUG] parameter name matched existing parameter but was also invalid");
+        self.params.push(indices);
     }
 }
 
@@ -599,6 +671,89 @@ mod test {
                 mt.unwrap().as_str_repr(),
                 "text/x.my; foo*=utf-8''b%00r"
             );
+        }
+    }
+
+    mod remove_param {
+        use super::super::MediaType;
+        use spec::HttpSpec;
+
+        #[test]
+        fn no_param() {
+            let mut mt = MediaType::<HttpSpec>::new("text", "plain").unwrap();
+            assert_eq!(mt.remove_param("charset"), false);
+            assert_eq!(mt.as_str_repr(), "text/plain");
+        }
+
+        #[test]
+        fn only_other_params() {
+            let mut mt = MediaType::<HttpSpec>::new_with_params("text", "plain", vec![
+                ("barset", "baromatish")
+            ]).unwrap();
+            assert_eq!(mt.remove_param("charset"), false);
+            assert_eq!(mt.as_str_repr(), "text/plain; barset=baromatish");
+        }
+
+        #[test]
+        fn at_the_end() {
+            let mut mt = MediaType::<HttpSpec>::new_with_params("text", "plain", vec![
+                ("charset", "NeoUtf8")
+            ]).unwrap();
+            assert_eq!(mt.remove_param("charset"), true);
+            assert_eq!(mt.as_str_repr(), "text/plain");
+        }
+
+        #[test]
+        fn in_between_other_params() {
+            let mut mt = MediaType::<HttpSpec>::new_with_params("text", "plain", vec![
+                ("foo", "bar"),
+                ("charset", "NeoUtf8"),
+                ("bar", "foot")
+            ]).unwrap();
+            assert_eq!(mt.remove_param("charset"), true);
+            assert_eq!(mt.as_str_repr(), "text/plain; foo=bar; bar=foot");
+        }
+    }
+
+    mod set_param {
+        use super::super::MediaType;
+        use spec::HttpSpec;
+
+        #[test]
+        fn add_to_empty() {
+            let mut mt = MediaType::<HttpSpec>::new("text","plain").unwrap();
+            mt.set_param("charset", "utf-8");
+            assert_eq!(mt.as_str_repr(), "text/plain; charset=utf-8")
+        }
+
+        #[test]
+        fn add_additional_one() {
+            let mut mt = MediaType::<HttpSpec>::new_with_params("text","plain", vec![
+                ("foo", "bar")
+            ]).unwrap();
+            mt.set_param("charset", "utf-8");
+            assert_eq!(mt.as_str_repr(), "text/plain; foo=bar; charset=utf-8")
+        }
+
+        #[test]
+        fn replace_at_end() {
+            let mut mt = MediaType::<HttpSpec>::new_with_params("text","plain", vec![
+                ("foo", "bar"),
+                ("charset", "NeoUtf8")
+            ]).unwrap();
+            mt.set_param("charset", "utf-8");
+            assert_eq!(mt.as_str_repr(), "text/plain; foo=bar; charset=utf-8")
+        }
+
+        #[test]
+        fn replace_in_between_other_params() {
+            let mut mt = MediaType::<HttpSpec>::new_with_params("text","plain", vec![
+                ("foo", "bar"),
+                ("charset", "NeoUtf8"),
+                ("bar", "foot")
+            ]).unwrap();
+            mt.set_param("charset", "utf-8");
+            assert_eq!(mt.as_str_repr(), "text/plain; foo=bar; bar=foot; charset=utf-8")
         }
     }
 
