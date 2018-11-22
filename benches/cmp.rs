@@ -1,6 +1,6 @@
 #![feature(test)]
 
-extern crate mime;
+extern crate media_type as mime;
 extern crate test;
 
 use mime::{MediaType, TEXT, PLAIN, CHARSET, AsciiCaseInsensitiveEq};

@@ -1,4 +1,4 @@
-# Contributing to mime
+# Contributing to media-type
 
 ## License
 
