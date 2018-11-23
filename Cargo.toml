@@ -1,7 +1,7 @@
 [package]
 
 name = "media-type"
-version = "0.4.0"
+version = "0.4.0-unstable"
 authors = ["Philipp Korber <p.korber@1aim.com>",]
 license = "MIT OR Apache-2.0"
 description = "impl for Media Types"
@@ -10,9 +10,9 @@ repository = "https://github.com/1aim/mime"
 keywords = ["mime", "media-extensions", "media-types"]
 
 [dependencies]
-media-type-impl-utils = { git = "https://github.com/1aim/media-type-impl-utils" }
+media-type-impl-utils = "0.3.0-unstable"
 quoted-string = "0.6"
-lut = { git = "https://github.com/1aim/lut", features = ["media-type-chars"] }
+lut = { version="0.1.0-unstable", features = ["media-type-chars"] }
 percent-encoding = "1.0.0"
 
 [[test]]
